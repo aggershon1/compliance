@@ -20,9 +20,9 @@
     --verdigris-soft:#77a294;
     --amber:#B8863B;
     --amber-soft:#d1a765;
+    --slate:#5b6b7a;
     --line: rgba(30,42,36,0.16);
     --line-strong: rgba(30,42,36,0.32);
-    --shadow: 0 1px 0 rgba(30,42,36,0.06);
     --radius: 3px;
   }
   *{box-sizing:border-box;}
@@ -37,280 +37,115 @@
   }
   ::selection{background:var(--verdigris-soft); color:var(--paper);}
   a{color:inherit;}
-
   .disp{font-family:'Fraunces', serif;}
   .mono{font-family:'IBM Plex Mono', monospace;}
 
-  /* ---------- shell ---------- */
-  .shell{
-    display:grid;
-    grid-template-columns: 300px 1fr;
-    min-height:100vh;
-  }
+  .shell{ display:grid; grid-template-columns: 300px 1fr; min-height:100vh; }
   @media (max-width: 860px){
     .shell{grid-template-columns: 1fr;}
     .docket{border-right:none; border-bottom:1px solid var(--line-strong);}
   }
 
-  /* ---------- masthead ---------- */
   .masthead{
     grid-column: 1 / -1;
-    display:flex;
-    align-items:baseline;
-    justify-content:space-between;
+    display:flex; align-items:baseline; justify-content:space-between;
     padding:22px 28px 16px 28px;
     border-bottom:2px solid var(--ink);
   }
-  .masthead .wordmark{
-    font-family:'Fraunces', serif;
-    font-weight:700;
-    font-size:26px;
-    letter-spacing:0.2px;
-  }
+  .masthead .wordmark{ font-family:'Fraunces', serif; font-weight:700; font-size:26px; letter-spacing:0.2px; }
   .masthead .wordmark small{
-    display:block;
-    font-family:'IBM Plex Mono', monospace;
-    font-weight:400;
-    font-size:10.5px;
-    letter-spacing:2.2px;
-    text-transform:uppercase;
-    color:var(--ink-soft);
-    margin-top:2px;
+    display:block; font-family:'IBM Plex Mono', monospace; font-weight:400; font-size:10.5px;
+    letter-spacing:2.2px; text-transform:uppercase; color:var(--ink-soft); margin-top:2px;
   }
-  .masthead .dateline{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11px;
-    color:var(--ink-faint);
-    text-align:right;
-    line-height:1.6;
-  }
+  .masthead .dateline{ font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--ink-faint); text-align:right; line-height:1.6; }
 
-  /* ---------- docket (sidebar) ---------- */
-  .docket{
-    border-right:1px solid var(--line-strong);
-    padding:20px 0 0 0;
-    display:flex;
-    flex-direction:column;
-  }
-  .docket-head{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding:0 20px 14px 20px;
-    border-bottom:1px solid var(--line);
-    margin-bottom:4px;
-  }
-  .docket-head h2{
-    font-size:11px;
-    letter-spacing:1.6px;
-    text-transform:uppercase;
-    font-weight:600;
-    color:var(--ink-soft);
-    margin:0;
-  }
-  .btn-new{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11px;
-    background:var(--ink);
-    color:var(--paper-raised);
-    border:none;
-    padding:6px 10px;
-    border-radius:var(--radius);
-    cursor:pointer;
-  }
-  .btn-new:hover{background:var(--verdigris);}
+  .docket{ border-right:1px solid var(--line-strong); padding:20px 0 0 0; display:flex; flex-direction:column; }
+  .docket-head{ display:flex; align-items:center; justify-content:space-between; padding:0 20px 14px 20px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+  .docket-head h2{ font-size:11px; letter-spacing:1.6px; text-transform:uppercase; font-weight:600; color:var(--ink-soft); margin:0; }
+  .btn-new{ font-family:'IBM Plex Mono', monospace; font-size:11px; background:var(--ink); color:var(--paper-raised); border:none; padding:6px 10px; border-radius:var(--radius); cursor:pointer; }
+  .btn-new:hover{ background:var(--verdigris); }
 
   .docket-list{ overflow-y:auto; flex:1; }
   .docket-entry{
-    display:block;
-    width:100%;
-    text-align:left;
-    background:none;
-    border:none;
-    border-bottom:1px solid var(--line);
-    padding:14px 20px;
-    cursor:pointer;
-    font-family:'IBM Plex Sans', sans-serif;
-    color:var(--ink);
+    display:block; width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--line);
+    padding:14px 20px; cursor:pointer; font-family:'IBM Plex Sans', sans-serif; color:var(--ink);
   }
   .docket-entry:hover{ background:var(--paper-raised); }
   .docket-entry.active{ background:var(--paper-raised); box-shadow: inset 3px 0 0 var(--ink); }
-  .docket-num{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:10.5px;
-    color:var(--ink-faint);
-    letter-spacing:0.5px;
-  }
-  .docket-domain{
-    font-weight:600;
-    font-size:14px;
-    margin:2px 0 6px 0;
-    word-break:break-all;
-  }
+  .docket-num{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-faint); letter-spacing:0.5px; }
+  .docket-domain{ font-weight:600; font-size:14px; margin:2px 0 6px 0; word-break:break-all; }
   .docket-chips{ display:flex; gap:6px; flex-wrap:wrap; }
-  .chip-mini{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:10px;
-    padding:2px 6px;
-    border-radius:2px;
-    border:1px solid var(--line-strong);
-    letter-spacing:0.3px;
-  }
+  .chip-mini{ font-family:'IBM Plex Mono', monospace; font-size:10px; padding:2px 6px; border-radius:2px; border:1px solid var(--line-strong); letter-spacing:0.3px; }
   .chip-mini.pass{ color:var(--verdigris); border-color:var(--verdigris-soft); }
   .chip-mini.partial{ color:var(--amber); border-color:var(--amber-soft); }
   .chip-mini.fail{ color:var(--redline); border-color:var(--redline-soft); }
+  .docket-empty{ padding:24px 20px; color:var(--ink-faint); font-size:12.5px; }
+  .disclaimer-foot{ padding:14px 20px; border-top:1px solid var(--line); font-size:10.5px; color:var(--ink-faint); line-height:1.5; }
 
-  .docket-empty{
-    padding:24px 20px;
-    color:var(--ink-faint);
-    font-size:12.5px;
-  }
-
-  .disclaimer-foot{
-    padding:14px 20px;
-    border-top:1px solid var(--line);
-    font-size:10.5px;
-    color:var(--ink-faint);
-    line-height:1.5;
-  }
-
-  /* ---------- main ---------- */
-  .main{ padding:28px 36px 60px 36px; max-width:960px; }
-  .empty-state{
-    margin-top:60px;
-    max-width:520px;
-  }
-  .empty-state h1{
-    font-family:'Fraunces', serif;
-    font-weight:600;
-    font-size:32px;
-    margin:0 0 10px 0;
-  }
+  .main{ padding:28px 36px 60px 36px; max-width:980px; }
+  .empty-state{ margin-top:60px; max-width:520px; }
+  .empty-state h1{ font-family:'Fraunces', serif; font-weight:600; font-size:32px; margin:0 0 10px 0; }
   .empty-state p{ color:var(--ink-soft); margin:0 0 22px 0; }
 
   .scan-form{ display:flex; gap:0; max-width:480px; }
   .scan-form input{
-    flex:1;
-    font-family:'IBM Plex Mono', monospace;
-    font-size:13px;
-    padding:11px 12px;
-    border:1.5px solid var(--ink);
-    border-right:none;
-    background:var(--paper-raised);
-    color:var(--ink);
+    flex:1; font-family:'IBM Plex Mono', monospace; font-size:13px; padding:11px 12px;
+    border:1.5px solid var(--ink); border-right:none; background:var(--paper-raised); color:var(--ink);
     border-radius:var(--radius) 0 0 var(--radius);
   }
   .scan-form input:focus{ outline:none; background:#fff; }
   .scan-form button{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:12.5px;
-    padding:0 18px;
-    background:var(--ink);
-    color:var(--paper-raised);
-    border:1.5px solid var(--ink);
-    border-radius:0 var(--radius) var(--radius) 0;
-    cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; padding:0 18px; background:var(--ink);
+    color:var(--paper-raised); border:1.5px solid var(--ink); border-radius:0 var(--radius) var(--radius) 0; cursor:pointer;
   }
   .scan-form button:hover{ background:var(--verdigris); border-color:var(--verdigris); }
 
-  .scanning-box{
-    max-width:480px;
-    border:1.5px solid var(--ink);
-    background:var(--paper-raised);
-    padding:18px 20px;
-    border-radius:var(--radius);
-  }
-  .scanning-box .cursor{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:12.5px;
-    color:var(--ink-soft);
-  }
-  .scanning-step{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:12px;
-    color:var(--ink-faint);
-    padding:3px 0;
-  }
+  .scanning-box{ max-width:480px; border:1.5px solid var(--ink); background:var(--paper-raised); padding:18px 20px; border-radius:var(--radius); }
+  .scanning-box .cursor{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--ink-soft); }
+  .scanning-step{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink-faint); padding:3px 0; }
   .scanning-step.done{ color:var(--verdigris); }
   .scanning-step.current{ color:var(--ink); }
   .scanning-step .mark{ display:inline-block; width:16px; }
 
-  /* header of a site page */
   .site-header{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:20px;
-    border-bottom:2px solid var(--ink);
-    padding-bottom:16px;
-    margin-bottom:20px;
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px;
+    border-bottom:2px solid var(--ink); padding-bottom:16px; margin-bottom:20px; flex-wrap:wrap;
   }
-  .site-header h1{
-    font-family:'Fraunces', serif;
-    font-weight:600;
-    font-size:28px;
-    margin:0 0 4px 0;
-    word-break:break-all;
-  }
+  .site-header h1{ font-family:'Fraunces', serif; font-weight:600; font-size:28px; margin:0 0 4px 0; word-break:break-all; }
   .site-meta{ font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--ink-faint); }
   .site-meta .delta-up{ color:var(--verdigris); }
   .site-meta .delta-down{ color:var(--redline); }
-  .rescan-btn{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11.5px;
-    background:none;
-    border:1.5px solid var(--ink);
-    color:var(--ink);
-    padding:8px 14px;
-    border-radius:var(--radius);
-    cursor:pointer;
-    white-space:nowrap;
+  .header-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .rescan-btn, .ff-btn{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; background:none; border:1.5px solid var(--ink);
+    color:var(--ink); padding:8px 14px; border-radius:var(--radius); cursor:pointer; white-space:nowrap;
   }
   .rescan-btn:hover{ background:var(--ink); color:var(--paper-raised); }
+  .ff-btn{ border-color:var(--slate); color:var(--slate); font-size:10.5px; }
+  .ff-btn:hover{ background:var(--slate); color:var(--paper-raised); }
 
-  /* regulation picker */
   .reg-picker{ display:flex; gap:10px; align-items:center; margin-bottom:22px; flex-wrap:wrap; }
   .reg-picker .label{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--ink-faint); }
   .reg-toggle{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:12px;
-    padding:6px 12px;
-    border:1.5px solid var(--line-strong);
-    border-radius:20px;
-    cursor:pointer;
-    background:none;
-    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace; font-size:12px; padding:6px 12px; border:1.5px solid var(--line-strong);
+    border-radius:20px; cursor:pointer; background:none; color:var(--ink-soft);
   }
   .reg-toggle.on{ border-color:var(--ink); color:var(--ink); background:var(--paper-raised); font-weight:500; }
 
-  /* tabs */
-  .tabs{ display:flex; gap:2px; border-bottom:1px solid var(--line-strong); margin-bottom:22px; }
+  .tabs{ display:flex; gap:2px; border-bottom:1px solid var(--line-strong); margin-bottom:22px; flex-wrap:wrap; }
   .tab-btn{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11.5px;
-    letter-spacing:0.4px;
-    background:none;
-    border:none;
-    padding:10px 4px;
-    margin-right:22px;
-    color:var(--ink-faint);
-    cursor:pointer;
-    border-bottom:2px solid transparent;
-    position:relative;
-    bottom:-1px;
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; letter-spacing:0.4px; background:none; border:none;
+    padding:10px 4px; margin-right:22px; color:var(--ink-faint); cursor:pointer; border-bottom:2px solid transparent;
+    position:relative; bottom:-1px;
   }
   .tab-btn.active{ color:var(--ink); border-bottom-color:var(--redline); font-weight:500; }
   .tab-btn:hover:not(.active){ color:var(--ink-soft); }
 
-  /* overall score row with stamps */
   .stamp-row{ display:flex; gap:26px; margin-bottom:28px; flex-wrap:wrap; }
   .stamp{
-    width:88px; height:88px;
-    border-radius:50%;
-    border:3px double currentColor;
+    width:88px; height:88px; border-radius:50%; border:3px double currentColor;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    transform:rotate(-6deg);
-    flex-shrink:0;
+    transform:rotate(-6deg); flex-shrink:0;
   }
   .stamp .grade{ font-family:'Fraunces', serif; font-weight:700; font-size:28px; line-height:1; }
   .stamp .glabel{ font-family:'IBM Plex Mono', monospace; font-size:8.5px; letter-spacing:1px; text-transform:uppercase; margin-top:3px; }
@@ -319,72 +154,87 @@
   .stamp.tier-d, .stamp.tier-f{ color:var(--redline); }
   .stamp-wrap{ display:flex; align-items:center; gap:12px; }
   .stamp-num{ font-family:'IBM Plex Mono', monospace; font-size:20px; color:var(--ink-faint); }
-  .stamp-caption{ font-size:12px; color:var(--ink-soft); max-width:150px; }
+  .stamp-caption{ font-size:12px; color:var(--ink-soft); max-width:180px; }
 
-  /* ledger table of requirements */
   .reg-block{ margin-bottom:34px; }
-  .reg-block h3{
-    font-family:'Fraunces', serif;
-    font-size:18px;
-    font-weight:600;
-    margin:0 0 2px 0;
-  }
+  .reg-block h3{ font-family:'Fraunces', serif; font-size:18px; font-weight:600; margin:0 0 2px 0; }
   .reg-block .reg-sub{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-faint); margin-bottom:12px; }
+
   .ledger{ border-top:1px solid var(--line-strong); }
   .ledger-row{
-    display:grid;
-    grid-template-columns: 1fr 90px;
-    gap:16px;
-    padding:12px 0;
-    border-bottom:1px solid var(--line);
-    align-items:start;
+    display:grid; grid-template-columns: 1fr 90px; gap:16px; padding:12px 0;
+    border-bottom:1px solid var(--line); align-items:start;
   }
   .req-text{ font-size:13.5px; }
   .req-code{ font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--ink-faint); margin-right:8px; }
-  .req-note{
-    font-size:12px;
-    color:var(--ink-soft);
-    margin-top:5px;
-    padding-left:14px;
-    border-left:2px solid var(--line-strong);
-  }
+  .req-note{ font-size:12px; color:var(--ink-soft); margin-top:5px; padding-left:14px; border-left:2px solid var(--line-strong); }
   .req-note.fail{ border-left-color:var(--redline); color:var(--redline-soft); }
   .req-note.partial{ border-left-color:var(--amber); color:#8c6a2e; }
   .status-badge{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:10.5px;
-    letter-spacing:0.4px;
-    text-transform:uppercase;
-    padding:3px 9px;
-    border-radius:20px;
-    text-align:center;
-    justify-self:end;
-    white-space:nowrap;
-    border:1.3px solid;
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; letter-spacing:0.4px; text-transform:uppercase;
+    padding:3px 9px; border-radius:20px; text-align:center; justify-self:end; white-space:nowrap; border:1.3px solid;
   }
   .status-badge.pass{ color:var(--verdigris); border-color:var(--verdigris-soft); }
   .status-badge.partial{ color:var(--amber); border-color:var(--amber-soft); }
   .status-badge.fail{ color:var(--redline); border-color:var(--redline-soft); }
   .status-badge.na{ color:var(--ink-faint); border-color:var(--line-strong); }
+  .status-badge.pending{ color:var(--slate); border-color:var(--slate); }
 
-  /* legislation cards */
+  .source-tag{
+    font-family:'IBM Plex Mono', monospace; font-size:9px; text-transform:uppercase; letter-spacing:0.5px;
+    color:var(--ink-faint); border:1px solid var(--line-strong); border-radius:2px; padding:1px 5px; margin-right:6px;
+  }
+  .source-tag.attested{ color:var(--slate); border-color:var(--slate); }
+
+  /* checklist items */
+  .checklist-item{ padding:14px 0; border-bottom:1px solid var(--line); }
+  .checklist-head-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:14px; }
+  .checklist-check-row{ display:flex; align-items:flex-start; gap:10px; }
+  .checklist-check-row input[type=checkbox]{ margin-top:3px; width:15px; height:15px; accent-color: var(--ink); cursor:pointer; }
+  .checklist-label{ font-size:13.5px; cursor:pointer; }
+  .checklist-guidance{ font-size:11.5px; color:var(--ink-faint); margin:4px 0 0 25px; }
+  .checklist-body{ margin:12px 0 0 25px; max-width:640px; }
+  .checklist-textarea{
+    width:100%; font-family:'IBM Plex Sans', sans-serif; font-size:12.8px; padding:9px 10px;
+    border:1.3px solid var(--line-strong); border-radius:var(--radius); background:#fff; resize:vertical; min-height:56px;
+  }
+  .checklist-file-row{ display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap; }
+  .file-btn{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; border:1.3px dashed var(--line-strong);
+    background:var(--paper-raised); padding:6px 10px; border-radius:var(--radius); cursor:pointer; color:var(--ink-soft);
+  }
+  .thumb-preview{ height:38px; border-radius:2px; border:1px solid var(--line-strong); }
+  .submit-btn{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; background:var(--ink); color:var(--paper-raised);
+    border:none; padding:8px 14px; border-radius:var(--radius); cursor:pointer; margin-top:10px;
+  }
+  .submit-btn:hover{ background:var(--verdigris); }
+  .followup-box{
+    margin-top:12px; padding:12px 14px; background:var(--paper-raised); border-left:3px solid var(--amber);
+    border-radius:0 var(--radius) var(--radius) 0;
+  }
+  .followup-q{ font-size:12.8px; font-weight:500; margin-bottom:6px; }
+  .followup-sketch{ font-size:12px; color:var(--ink-soft); margin-bottom:10px; font-style:italic; }
+  .result-box{ margin-top:10px; display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+  .confidence-tag{
+    font-family:'IBM Plex Mono', monospace; font-size:9.5px; text-transform:uppercase; letter-spacing:0.4px;
+    padding:2px 7px; border-radius:2px; border:1px solid var(--line-strong); color:var(--ink-faint);
+  }
+  .rationale-text{ font-size:12.3px; color:var(--ink-soft); margin-top:6px; max-width:560px; }
+  .stale-badge{
+    font-family:'IBM Plex Mono', monospace; font-size:9.5px; text-transform:uppercase; color:var(--redline);
+    border:1px solid var(--redline-soft); border-radius:2px; padding:1px 6px; margin-left:6px;
+  }
+  .attested-meta{ font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--ink-faint); margin-top:6px; }
+
   .filters{ display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
   .filters select{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11.5px;
-    padding:6px 10px;
-    border:1.3px solid var(--line-strong);
-    border-radius:var(--radius);
-    background:var(--paper-raised);
-    color:var(--ink);
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; padding:6px 10px; border:1.3px solid var(--line-strong);
+    border-radius:var(--radius); background:var(--paper-raised); color:var(--ink);
   }
   .bill-card{
-    border:1px solid var(--line-strong);
-    border-left:3px solid var(--ink);
-    background:var(--paper-raised);
-    padding:14px 16px;
-    margin-bottom:12px;
-    border-radius:0 var(--radius) var(--radius) 0;
+    border:1px solid var(--line-strong); border-left:3px solid var(--ink); background:var(--paper-raised);
+    padding:14px 16px; margin-bottom:12px; border-radius:0 var(--radius) var(--radius) 0;
   }
   .bill-top{ display:flex; justify-content:space-between; gap:12px; margin-bottom:4px; align-items:baseline; flex-wrap:wrap; }
   .bill-name{ font-family:'Fraunces', serif; font-weight:600; font-size:15.5px; }
@@ -396,38 +246,17 @@
   .bill-meta .prep{ color:var(--verdigris); }
   .bill-meta b{ font-weight:600; }
 
-  /* risk tab */
-  .risk-item{
-    display:grid;
-    grid-template-columns: 34px 1fr;
-    gap:14px;
-    padding:16px 0;
-    border-bottom:1px solid var(--line);
-  }
+  .risk-item{ display:grid; grid-template-columns: 34px 1fr; gap:14px; padding:16px 0; border-bottom:1px solid var(--line); }
   .risk-rank{ font-family:'Fraunces', serif; font-size:24px; font-weight:700; color:var(--redline); }
   .risk-title{ font-size:14.5px; font-weight:500; margin-bottom:4px; }
   .risk-sev{ font-family:'IBM Plex Mono', monospace; font-size:9.5px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:6px; }
   .risk-remedy{ font-size:12.8px; color:var(--ink-soft); margin-bottom:10px; }
-  .precedent{
-    background:var(--paper-raised);
-    border:1px dashed var(--line-strong);
-    padding:10px 12px;
-    font-size:12px;
-    border-radius:var(--radius);
-  }
+  .precedent{ background:var(--paper-raised); border:1px dashed var(--line-strong); padding:10px 12px; font-size:12px; border-radius:var(--radius); }
   .precedent .pre-label{ font-family:'IBM Plex Mono', monospace; font-size:9.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-faint); margin-bottom:4px; }
   .precedent .fine{ color:var(--redline); font-weight:600; font-family:'IBM Plex Mono', monospace; }
   .precedent .none{ color:var(--ink-faint); font-style:italic; }
+  .risk-disclaimer{ margin-top:20px; font-size:11.5px; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:12px; }
 
-  .risk-disclaimer{
-    margin-top:20px;
-    font-size:11.5px;
-    color:var(--ink-faint);
-    border-top:1px solid var(--line);
-    padding-top:12px;
-  }
-
-  /* trust tab */
   .trust-cat{ margin-bottom:20px; }
   .trust-cat-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
   .trust-cat-name{ font-weight:600; font-size:14px; }
@@ -437,7 +266,6 @@
   .trust-cat-note{ font-size:12.8px; color:var(--ink-soft); }
 
   .section-note{ font-size:11.5px; color:var(--ink-faint); margin-bottom:16px; font-family:'IBM Plex Mono', monospace; }
-
   .foot-space{ height:40px; }
 </style>
 </head>
@@ -446,85 +274,112 @@
 
 <script>
 /* ============================================================
-   DATA — regulation requirements, remediation hints, mock
-   legislation & enforcement datasets. All enforcement figures
-   are composite / illustrative for prototype purposes only.
+   DATA
    ============================================================ */
 
-const GDPR_REQS = [
-  {id:'gdpr-1', code:'Art. 6', text:'Lawful basis documented for each processing purpose', sev:'high', na:false,
+/* ---- GDPR: scanned (logged-out, publicly observable) ---- */
+const GDPR_SCANNED = [
+  {id:'gdpr-s1', code:'Art. 6', text:'Lawful basis referenced in privacy notice', sev:'high', na:false,
     hints:{partial:'Lawful basis is referenced generically but not mapped to each processing purpose.',
-           fail:'No documented lawful basis found for processing activities — add a register mapping each purpose to an Art. 6 basis.'}},
-  {id:'gdpr-2', code:'Art. 7 / ePrivacy', text:'Granular consent mechanism for cookies and trackers', sev:'high', na:false,
+           fail:'No documented lawful basis found for processing activities.'}},
+  {id:'gdpr-s2', code:'Art. 7 / ePrivacy', text:'Granular consent mechanism for cookies and trackers', sev:'high', na:false,
     hints:{partial:'Cookie banner exists but lacks granular accept/reject-by-category controls.',
-           fail:'No compliant consent mechanism detected — non-essential trackers appear to fire before consent.'}},
-  {id:'gdpr-3', code:'Art. 13', text:'Privacy notice covers all processing purposes in plain language', sev:'med', na:false,
+           fail:'No compliant consent mechanism detected \u2014 trackers appear to fire before consent.'}},
+  {id:'gdpr-s3', code:'Art. 13', text:'Privacy notice covers all processing purposes in plain language', sev:'med', na:false,
     hints:{partial:'Notice covers most processing but omits some data sources found during the crawl.',
            fail:'Privacy notice is missing, or does not match tracking behavior observed on the site.'}},
-  {id:'gdpr-4', code:'Art. 15', text:'Right to access — request process exists with a defined timeline', sev:'med', na:false,
-    hints:{partial:'Access request process exists but the response timeline isn\u2019t stated.',
-           fail:'No mechanism found for users to request a copy of their data.'}},
-  {id:'gdpr-5', code:'Art. 17', text:'Right to erasure ("right to be forgotten") supported', sev:'high', na:false,
-    hints:{partial:'Deletion is available but only via manual support ticket, not a clear self-serve path.',
-           fail:'No deletion / erasure request path found.'}},
-  {id:'gdpr-6', code:'Art. 20', text:'Right to data portability — export in a machine-readable format', sev:'low', na:false,
-    hints:{partial:'Data can be requested but a machine-readable export format isn\u2019t confirmed.',
-           fail:'No data export / portability option found.'}},
-  {id:'gdpr-7', code:'Art. 37', text:'Data Protection Officer designated where required', sev:'low', na:true,
+  {id:'gdpr-s4', code:'Art. 37', text:'DPO contact designated and published', sev:'low', na:true,
     hints:{partial:'A privacy contact is listed but not clearly designated as DPO.',
-           fail:'No Data Protection Officer or privacy contact designated, though the scale of processing suggests one is required.'}},
-  {id:'gdpr-8', code:'Ch. V', text:'International transfer safeguards (SCCs / adequacy) documented', sev:'high', na:false,
+           fail:'No Data Protection Officer or privacy contact designated.'}},
+  {id:'gdpr-s5', code:'Ch. V', text:'International transfer safeguards disclosed', sev:'high', na:false,
     hints:{partial:'Transfers outside the EEA are mentioned but the underlying safeguard isn\u2019t named.',
            fail:'Cross-border data transfers detected with no documented safeguard.'}},
-  {id:'gdpr-9', code:'Art. 30', text:'Records of Processing Activities (RoPA) maintained', sev:'med', na:false,
-    hints:{partial:'Some processing activities are documented; the inventory looks incomplete.',
-           fail:'No evidence of a records-of-processing inventory.'}},
-  {id:'gdpr-10', code:'Art. 33', text:'Data breach notification procedure (72-hour rule) documented', sev:'high', na:false,
-    hints:{partial:'A breach process is referenced but the 72-hour authority-notification window isn\u2019t specified.',
+  {id:'gdpr-s6', code:'Art. 30', text:'Records-of-processing commitment referenced in policy', sev:'med', na:false,
+    hints:{partial:'A general commitment exists but the inventory scope looks incomplete.',
+           fail:'No reference to a records-of-processing practice found.'}},
+  {id:'gdpr-s7', code:'Art. 33', text:'Breach notification procedure documented', sev:'high', na:false,
+    hints:{partial:'A breach process is referenced but the 72-hour window isn\u2019t specified.',
            fail:'No documented data breach notification procedure found.'}},
 ];
 
-const CCPA_REQS = [
-  {id:'ccpa-1', code:'\u00A71798.135', text:'"Do Not Sell or Share My Personal Information" link present', sev:'high', na:false,
+/* ---- GDPR: self-attested (behind login) ---- */
+const GDPR_CHECKLIST = [
+  {id:'gdpr-a1', code:'Art. 15', text:'Self-serve right to access \u2014 users can view/download their data from account settings', sev:'med',
+    guidance:'Typically: an Account \u2192 Privacy or Data page with a "View my data" / "Download my data" action that works without emailing support.',
+    followUp:'Is this available directly in account settings, and does it complete without a person manually processing it?',
+    pos:['self-serve','self serve','instant','automatic','download','account settings','without contacting','no support','button','export'],
+    neg:['email support','contact us','support ticket','manually','request via email','support team processes']},
+  {id:'gdpr-a2', code:'Art. 17', text:'Self-serve right to erasure \u2014 users can delete their account/data without contacting support', sev:'high',
+    guidance:'Typically: a "Delete my account" button in account settings that deletes immediately or within a stated window, with no email required.',
+    followUp:'Can a user complete deletion entirely within your product UI, or does someone on your team take a manual step?',
+    pos:['delete my account','self-serve','automatic','instant','account settings','button','without contacting'],
+    neg:['email support','contact us','support ticket','manually processed','case-by-case']},
+  {id:'gdpr-a3', code:'Art. 20', text:'Self-serve data portability \u2014 structured export (e.g. CSV/JSON)', sev:'low',
+    guidance:'Typically: an export producing a machine-readable file (CSV/JSON) from account settings, not a manually compiled PDF.',
+    followUp:'Does the export come out as a structured, machine-readable file, or as something a person put together?',
+    pos:['csv','json','export','machine-readable','structured','download','self-serve'],
+    neg:['pdf summary','manually compiled','email attachment','support prepares']},
+  {id:'gdpr-a4', code:'Art. 7 (ongoing)', text:'Granular consent preference center \u2014 marketing/analytics/tracking toggled independently', sev:'med',
+    guidance:'Typically: a preferences page where each consent category has its own toggle, not one blanket accept-all switch.',
+    followUp:'Can a user turn off, say, marketing while keeping analytics on, independently of each other?',
+    pos:['toggle','independently','granular','separate','preference center','opt out of','turn off'],
+    neg:['all or nothing','single toggle','accept all only','one setting']},
+];
+
+/* ---- CCPA: scanned (logged-out, publicly observable) ---- */
+const CCPA_SCANNED = [
+  {id:'ccpa-s1', code:'\u00A71798.135', text:'"Do Not Sell or Share My Personal Information" link present', sev:'high', na:false,
     hints:{partial:'The link exists but is buried in footer navigation rather than prominent.',
            fail:'No "Do Not Sell or Share My Personal Information" link found.'}},
-  {id:'ccpa-2', code:'\u00A71798.100', text:'Notice at collection describing categories and purposes', sev:'high', na:false,
+  {id:'ccpa-s2', code:'\u00A71798.100', text:'Notice at collection describing categories and purposes', sev:'high', na:false,
     hints:{partial:'A notice is present but doesn\u2019t list all categories of personal information collected.',
            fail:'No notice at collection shown before or at the point of data collection.'}},
-  {id:'ccpa-3', code:'\u00A71798.110', text:'Right to know / access request mechanism', sev:'med', na:false,
-    hints:{partial:'A request form exists but doesn\u2019t confirm the 45-day response commitment.',
-           fail:'No right-to-know / access request mechanism found.'}},
-  {id:'ccpa-4', code:'\u00A71798.105', text:'Right to delete request mechanism', sev:'high', na:false,
-    hints:{partial:'Deletion is available but only via phone/email, with no verifiable web form.',
-           fail:'No right-to-delete mechanism found.'}},
-  {id:'ccpa-5', code:'\u00A71798.106', text:'Right to correct inaccurate personal information', sev:'med', na:false,
-    hints:{partial:'Correction is possible via support but isn\u2019t a dedicated, discoverable flow.',
-           fail:'No right-to-correct mechanism found.'}},
-  {id:'ccpa-6', code:'\u00A71798.125', text:'Non-discrimination for exercising privacy rights', sev:'med', na:false,
+  {id:'ccpa-s3', code:'\u00A71798.125', text:'Non-discrimination commitment stated in policy', sev:'med', na:false,
     hints:{partial:'Policy language exists but doesn\u2019t explicitly rule out degraded service for opt-outs.',
            fail:'No non-discrimination commitment found in the policy.'}},
-  {id:'ccpa-7', code:'\u00A71798.121', text:'Sensitive personal information opt-out (limit use)', sev:'high', na:false,
+  {id:'ccpa-s4', code:'\u00A71798.121', text:'Sensitive personal information opt-out link present', sev:'high', na:false,
     hints:{partial:'A "limit use" link is present but not clearly distinguished from the general opt-out.',
-           fail:'No mechanism to limit use of sensitive personal information.'}},
-  {id:'ccpa-8', code:'\u00A71798.140', text:'Service provider / contractor data-use contracts in place', sev:'med', na:false,
-    hints:{partial:'A vendor list is disclosed but contract terms aren\u2019t referenced.',
-           fail:'No disclosure of service-provider data-use contract terms.'}},
-  {id:'ccpa-9', code:'\u00A71798.125(b)', text:'Financial incentive program disclosures (if applicable)', sev:'low', na:true,
+           fail:'No link to limit use of sensitive personal information found.'}},
+  {id:'ccpa-s5', code:'\u00A71798.125(b)', text:'Financial incentive program disclosure (if applicable)', sev:'low', na:true,
     hints:{partial:'A loyalty/rewards program exists but incentive terms aren\u2019t fully disclosed.',
            fail:'A financial incentive program was detected without the required disclosure.'}},
 ];
 
+/* ---- CCPA: self-attested (behind login) ---- */
+const CCPA_CHECKLIST = [
+  {id:'ccpa-a1', code:'\u00A71798.110', text:'Self-serve right to know/access from account settings', sev:'med',
+    guidance:'Typically: an account page listing categories of personal info collected, viewable/downloadable without contacting support.',
+    followUp:'Can a user see this directly in their account, or does it require submitting a request and waiting?',
+    pos:['self-serve','account settings','view','download','automatic','without contacting'],
+    neg:['email','contact us','support ticket','wait for response','manually']},
+  {id:'ccpa-a2', code:'\u00A71798.105', text:'Self-serve right to delete from account settings', sev:'high',
+    guidance:'Typically: a "Delete my account" option in settings that completes the request without emailing support.',
+    followUp:'Does deletion happen directly through account settings, or does someone process it manually?',
+    pos:['delete my account','self-serve','automatic','account settings','button'],
+    neg:['email','contact us','support ticket','manually','case-by-case']},
+  {id:'ccpa-a3', code:'\u00A71798.106', text:'Self-serve right to correct from account settings', sev:'med',
+    guidance:'Typically: an editable profile/settings page where users can directly correct inaccurate personal information.',
+    followUp:'Can users edit this themselves in their account, or does your team make the change?',
+    pos:['edit','self-serve','account settings','directly','update'],
+    neg:['email','contact us','support makes the change','manually']},
+  {id:'ccpa-a4', code:'\u00A71798.121', text:'Sensitive-PI "limit use" toggle actually functions (not just a static link)', sev:'med',
+    guidance:'Typically: a real toggle in account/privacy settings that restricts use of sensitive personal information, not just an informational link.',
+    followUp:'Is this an actual working toggle in the account, or just a link to a policy page?',
+    pos:['toggle','setting','account','functions','actually limits','opt out'],
+    neg:['just a link','static page','informational only','no setting']},
+];
+
 const FINES = {
-  'gdpr-2': {who:'Mid-size adtech network (composite case)', violation:'Trackers fired before consent was captured', fine:'\u20AC8.4M', regulator:'EU Data Protection Authority', year:2023},
-  'gdpr-5': {who:'SaaS analytics platform (composite case)', violation:'No functioning erasure / deletion mechanism', fine:'\u20AC2.1M', regulator:'EU Data Protection Authority', year:2022},
-  'gdpr-8': {who:'Financial services site (composite case)', violation:'Cross-border transfers without documented safeguards', fine:'\u20AC12.0M', regulator:'EU Data Protection Authority', year:2023},
-  'ccpa-1': {who:'Regional retail chain (composite case)', violation:'No functioning "Do Not Sell" link', fine:'$1.2M', regulator:'California Attorney General', year:2023},
-  'ccpa-2': {who:'Media publisher (composite case)', violation:'Missing notice at collection', fine:'$0.9M', regulator:'California Attorney General', year:2022},
-  'ccpa-7': {who:'Consumer app (composite case)', violation:'Undisclosed sharing of sensitive personal information', fine:'$3.7M', regulator:'California Attorney General', year:2024},
+  'gdpr-s2': {who:'Mid-size adtech network (composite case)', violation:'Trackers fired before consent was captured', fine:'\u20AC8.4M', regulator:'EU Data Protection Authority', year:2023},
+  'gdpr-a2': {who:'SaaS analytics platform (composite case)', violation:'No functioning erasure / deletion mechanism', fine:'\u20AC2.1M', regulator:'EU Data Protection Authority', year:2022},
+  'gdpr-s5': {who:'Financial services site (composite case)', violation:'Cross-border transfers without documented safeguards', fine:'\u20AC12.0M', regulator:'EU Data Protection Authority', year:2023},
+  'ccpa-s1': {who:'Regional retail chain (composite case)', violation:'No functioning "Do Not Sell" link', fine:'$1.2M', regulator:'California Attorney General', year:2023},
+  'ccpa-s2': {who:'Media publisher (composite case)', violation:'Missing notice at collection', fine:'$0.9M', regulator:'California Attorney General', year:2022},
+  'ccpa-a4': {who:'Consumer app (composite case)', violation:'Undisclosed sharing of sensitive personal information', fine:'$3.7M', regulator:'California Attorney General', year:2024},
 };
 
 const BILLS = [
-  {name:'EU AI Act — high-risk system obligations', region:'EU', status:'Enforcement phasing in', effective:'Phased 2025\u20132027',
+  {name:'EU AI Act \u2014 high-risk system obligations', region:'EU', status:'Enforcement phasing in', effective:'Phased 2025\u20132027',
    summary:'Sets tiered obligations for AI systems by risk level, with the strictest rules applying to "high-risk" use cases like automated decision-making.',
    relevance:'Relevant if the site uses AI-driven personalization, scoring, or automated decisions on EU users.',
    prep:'Inventory AI-driven features on the site and classify each by risk tier.'},
@@ -532,7 +387,7 @@ const BILLS = [
    summary:'A proposed federal privacy standard that would preempt parts of the current state-by-state patchwork.',
    relevance:'Would eventually replace or layer on top of state laws currently used for compliance.',
    prep:'Track committee status; avoid building compliance solely around the current state patchwork.'},
-  {name:'Colorado Privacy Act — profiling amendments', region:'US-Colorado', status:'In effect', effective:'2024\u20132026 phased',
+  {name:'Colorado Privacy Act \u2014 profiling amendments', region:'US-Colorado', status:'In effect', effective:'2024\u20132026 phased',
    summary:'Adds specific obligations around profiling used for consequential decisions (housing, employment, credit, etc).',
    relevance:'Applies if the site profiles Colorado residents for decisions with legal or similarly significant effects.',
    prep:'Add an opt-out specifically for profiling used in consequential decisions.'},
@@ -560,12 +415,12 @@ const BILLS = [
 
 const TRUST_CATS = [
   {id:'minimization', name:'Data minimization',
-   notes:{good:'Collection appears scoped to stated purposes — keep auditing fields as forms change.',
+   notes:{good:'Collection appears scoped to stated purposes \u2014 keep auditing fields as forms change.',
            moderate:'Some optional fields are collected without a clearly stated purpose. Tag each field with a retention/purpose reason.',
            weak:'Forms request more data than the stated purpose requires. Cut optional fields and require justification for any new one added.'}},
   {id:'consent', name:'Consent clarity',
    notes:{good:'Consent language is specific and avoids bundling unrelated permissions together.',
-           moderate:'Consent copy is understandable but bundles marketing and functional cookies together — separate them.',
+           moderate:'Consent copy is understandable but bundles marketing and functional cookies together \u2014 separate them.',
            weak:'Consent language is dense legal text with no plain-language summary above it.'}},
   {id:'rights', name:'User rights support',
    notes:{good:'Access, delete, and export flows are self-service and confirm completion to the user.',
@@ -583,49 +438,28 @@ const TRUST_CATS = [
 
 const SEV_WEIGHT = {high:3, med:2, low:1};
 const SEV_LABEL = {high:'High severity', med:'Medium severity', low:'Low severity'};
+const STALE_DAYS = 90;
 
 /* ============================================================
-   DETERMINISTIC PSEUDO-RANDOM (seeded by domain + item + salt)
+   DETERMINISTIC PSEUDO-RANDOM (seeds the simulated scan track only)
    ============================================================ */
-function hashStr(str){
-  let h = 0;
-  for(let i=0;i<str.length;i++){ h = (h<<5) - h + str.charCodeAt(i); h |= 0; }
-  return h;
-}
-function seededRandom(seedStr){
-  let h = hashStr(seedStr);
-  let x = Math.sin(h) * 10000;
-  return x - Math.floor(x);
-}
+function hashStr(str){ let h=0; for(let i=0;i<str.length;i++){ h=(h<<5)-h+str.charCodeAt(i); h|=0; } return h; }
+function seededRandom(seedStr){ let h=hashStr(seedStr); let x=Math.sin(h)*10000; return x-Math.floor(x); }
 
 function statusFor(domain, salt, reqId, canBeNA){
   const seedBase = domain + '::' + salt + '::' + reqId;
-  if(canBeNA && seededRandom(seedBase + '::na') < 0.12) return 'NA';
-  const r = seededRandom(seedBase + '::status');
+  if(canBeNA && seededRandom(seedBase+'::na') < 0.12) return 'NA';
+  const r = seededRandom(seedBase+'::status');
   if(r < 0.42) return 'Pass';
   if(r < 0.74) return 'Partial';
   return 'Fail';
 }
 
-function scoreFor(reqs, results){
-  let total = 0, earned = 0;
-  reqs.forEach(r=>{
-    const st = results[r.id];
-    if(st === 'NA') return;
-    const w = SEV_WEIGHT[r.sev];
-    total += w;
-    if(st === 'Pass') earned += w;
-    else if(st === 'Partial') earned += w * 0.5;
-  });
-  if(total === 0) return 100;
-  return Math.round((earned/total)*100);
-}
-
 function gradeLabel(score){
-  if(score >= 90) return 'A';
-  if(score >= 80) return 'B';
-  if(score >= 70) return 'C';
-  if(score >= 60) return 'D';
+  if(score>=90) return 'A';
+  if(score>=80) return 'B';
+  if(score>=70) return 'C';
+  if(score>=60) return 'D';
   return 'F';
 }
 function tierClass(grade){
@@ -636,24 +470,104 @@ function tierClass(grade){
   return 'tier-f';
 }
 
+/* Blended score: scanned reqs + checklist items, one number per regulation */
+function blendedScore(scannedReqs, scannedResults, checklistItems, checklistState){
+  let total = 0, earned = 0;
+  scannedReqs.forEach(r=>{
+    const st = scannedResults[r.id];
+    if(st === 'NA') return;
+    const w = SEV_WEIGHT[r.sev];
+    total += w;
+    if(st==='Pass') earned += w;
+    else if(st==='Partial') earned += w*0.5;
+  });
+  checklistItems.forEach(item=>{
+    const w = SEV_WEIGHT[item.sev];
+    total += w;
+    const st = checklistState[item.id];
+    if(st && st.status==='Pass') earned += w;
+    else if(st && st.status==='Partial') earned += w*0.5;
+    // Fail / Pending / unattested => 0 credit
+  });
+  if(total===0) return 100;
+  return Math.round((earned/total)*100);
+}
+
 function runScan(domain, salt){
-  const gdprResults = {}; GDPR_REQS.forEach(r=>{ gdprResults[r.id] = statusFor(domain, salt, r.id, r.na); });
-  const ccpaResults = {}; CCPA_REQS.forEach(r=>{ ccpaResults[r.id] = statusFor(domain, salt, r.id, r.na); });
-  const gdprScore = scoreFor(GDPR_REQS, gdprResults);
-  const ccpaScore = scoreFor(CCPA_REQS, ccpaResults);
+  const gdprScanned = {}; GDPR_SCANNED.forEach(r=>{ gdprScanned[r.id] = statusFor(domain, salt, r.id, r.na); });
+  const ccpaScanned = {}; CCPA_SCANNED.forEach(r=>{ ccpaScanned[r.id] = statusFor(domain, salt, r.id, r.na); });
 
   const trust = {};
   TRUST_CATS.forEach(c=>{
-    const r = seededRandom(domain + '::' + salt + '::trust::' + c.id);
-    trust[c.id] = Math.round(40 + r*58); // 40-98
+    const r = seededRandom(domain+'::'+salt+'::trust::'+c.id);
+    trust[c.id] = Math.round(40 + r*58);
   });
   const trustScore = Math.round(TRUST_CATS.reduce((a,c)=>a+trust[c.id],0)/TRUST_CATS.length);
 
   return {
     timestamp: Date.now(),
-    gdpr: {results: gdprResults, score: gdprScore},
-    ccpa: {results: ccpaResults, score: ccpaScore},
+    gdprScanned, ccpaScanned,
     trust: {scores: trust, score: trustScore},
+  };
+}
+
+/* ============================================================
+   SIMULATED CHECKLIST REVIEW (prototype heuristic, not a live LLM call)
+   ============================================================ */
+function countMatches(text, words){
+  const t = text.toLowerCase();
+  return words.reduce((n,w)=> t.includes(w) ? n+1 : n, 0);
+}
+
+function reviewSubmission(item, description, hasScreenshot, followUpAnswer){
+  const combined = (description || '') + ' ' + (followUpAnswer || '');
+  const wordCount = (description || '').trim().split(/\s+/).filter(Boolean).length;
+
+  let confidenceScore = 0;
+  if(wordCount >= 18) confidenceScore++;
+  if(hasScreenshot) confidenceScore++;
+  if(followUpAnswer) confidenceScore++;
+
+  const isFirstPass = !followUpAnswer;
+  const lowInfo = wordCount < 12 && !hasScreenshot;
+
+  if(isFirstPass && lowInfo){
+    return {
+      needsFollowUp: true,
+      followUpQuestion: item.followUp,
+      sketch: item.guidance,
+    };
+  }
+
+  const posMatches = countMatches(combined, item.pos);
+  const negMatches = countMatches(combined, item.neg);
+
+  let status;
+  if(negMatches > 0 && negMatches >= posMatches){
+    status = 'Fail';
+  } else if(posMatches >= 2){
+    status = 'Pass';
+  } else if(posMatches >= 1){
+    status = 'Partial';
+  } else {
+    status = 'Partial';
+  }
+
+  let confidence = confidenceScore >= 2 ? 'High' : confidenceScore === 1 ? 'Medium' : 'Low';
+  if(followUpAnswer) confidence = confidenceScore >= 2 ? 'High' : 'Medium';
+
+  let rationale;
+  if(status === 'Pass'){
+    rationale = 'The description matches the pattern of a working self-serve flow' + (hasScreenshot ? ', corroborated by the attached screenshot.' : '.');
+  } else if(status === 'Fail'){
+    rationale = 'The description points to a manual/support-mediated process rather than a self-serve one built into the product.';
+  } else {
+    rationale = 'The description is plausible but doesn\u2019t clearly confirm all the criteria for this requirement' + (hasScreenshot ? ' \u2014 the screenshot helps but isn\u2019t fully conclusive.' : '.');
+  }
+
+  return {
+    needsFollowUp: false,
+    status, confidence, rationale,
   };
 }
 
@@ -661,7 +575,7 @@ function runScan(domain, salt){
    STATE
    ============================================================ */
 const state = {
-  sites: [],           // {id, domain, addedAt, selectedRegs:{GDPR:bool,CCPA:bool}, scans:[...]}
+  sites: [],
   selectedSiteId: null,
   activeTab: 'compliance',
   scanning: false,
@@ -670,10 +584,11 @@ const state = {
   legFilterRegion: 'All',
   legFilterStatus: 'All',
   nextDocketNum: 1,
+  drafts: {}, // draftKey -> {description, screenshot(dataURL), followUpAnswer}
 };
 
 const SCAN_STEPS = [
-  'Crawling site structure\u2026',
+  'Crawling site structure (logged-out pages only)\u2026',
   'Reading privacy policy & terms\u2026',
   'Inventorying cookies & trackers\u2026',
   'Comparing against selected regulations\u2026',
@@ -686,8 +601,13 @@ function cleanDomain(input){
   d = d.split('/')[0];
   return d || 'example.com';
 }
-
 function pad3(n){ return String(n).padStart(3,'0'); }
+function draftKey(siteId, itemId){ return siteId+'::'+itemId; }
+function getDraft(siteId, itemId){
+  const k = draftKey(siteId, itemId);
+  if(!state.drafts[k]) state.drafts[k] = {description:'', screenshot:null, followUpAnswer:''};
+  return state.drafts[k];
+}
 
 /* ============================================================
    RENDER
@@ -707,24 +627,19 @@ function render(){
           <h2>Docket</h2>
           <button class="btn-new" id="btn-add-site">+ New scan</button>
         </div>
-        <div class="docket-list">
-          ${renderDocketList()}
-        </div>
+        <div class="docket-list">${renderDocketList()}</div>
         <div class="disclaimer-foot">
-          This tool provides informational guidance only, not legal advice. Consult qualified counsel before making formal compliance decisions. Enforcement figures shown are composite / illustrative, not verified real-world records.
+          This tool provides informational guidance only, not legal advice. Consult qualified counsel before making formal compliance decisions. Enforcement figures and the checklist review shown here are simulated for this prototype.
         </div>
       </div>
-      <div class="main">
-        ${renderMain(site)}
-      </div>
+      <div class="main">${renderMain(site)}</div>
     </div>
   `;
-
   attachHandlers(site);
 }
 
 function renderDocketList(){
-  if(state.sites.length === 0 && !state.scanning){
+  if(state.sites.length===0 && !state.scanning){
     return `<div class="docket-empty">No sites scanned yet. Add a site to begin the first audit.</div>`;
   }
   let html = '';
@@ -734,35 +649,42 @@ function renderDocketList(){
       <div class="docket-chips"><span class="chip-mini">scanning\u2026</span></div></div>`;
   }
   [...state.sites].reverse().forEach(s=>{
-    const scan = s.scans[s.scans.length-1];
+    const g = combinedGdprScore(s);
+    const c = combinedCcpaScore(s);
     html += `<button class="docket-entry ${s.id===state.selectedSiteId?'active':''}" data-site-id="${s.id}">
       <div class="docket-num mono">NO. ${pad3(s.docketNum)}</div>
       <div class="docket-domain">${s.domain}</div>
       <div class="docket-chips">
-        <span class="chip-mini ${chipClassForScore(scan.gdpr.score)}">GDPR ${gradeLabel(scan.gdpr.score)}</span>
-        <span class="chip-mini ${chipClassForScore(scan.ccpa.score)}">CCPA ${gradeLabel(scan.ccpa.score)}</span>
+        <span class="chip-mini ${chipClass(g)}">GDPR ${gradeLabel(g)}</span>
+        <span class="chip-mini ${chipClass(c)}">CCPA ${gradeLabel(c)}</span>
       </div>
     </button>`;
   });
   return html;
 }
-
-function chipClassForScore(score){
+function chipClass(score){
   const g = gradeLabel(score);
   if(g==='A'||g==='B') return 'pass';
   if(g==='C') return 'partial';
   return 'fail';
 }
 
+function combinedGdprScore(site){
+  const scan = site.scans[site.scans.length-1];
+  return blendedScore(GDPR_SCANNED, scan.gdprScanned, GDPR_CHECKLIST, site.checklistState);
+}
+function combinedCcpaScore(site){
+  const scan = site.scans[site.scans.length-1];
+  return blendedScore(CCPA_SCANNED, scan.ccpaScanned, CCPA_CHECKLIST, site.checklistState);
+}
+
 function renderMain(site){
-  if(state.scanning){
-    return renderScanningView();
-  }
+  if(state.scanning) return renderScanningView();
   if(!site){
     return `
       <div class="empty-state">
         <h1 class="disp">Open a new case file.</h1>
-        <p>Enter a website to run a full-site crawl against GDPR and CCPA/CPRA, surface upcoming legislation that could affect it, and score its general privacy trustworthiness.</p>
+        <p>Enter a website to run a full-site crawl of its logged-out surface against GDPR and CCPA/CPRA, then fill out the self-attested checklist for what happens behind login.</p>
         <form class="scan-form" id="empty-scan-form">
           <input type="text" id="empty-scan-input" placeholder="e.g. acmehealth.com" autocomplete="off">
           <button type="submit">Scan site</button>
@@ -772,13 +694,13 @@ function renderMain(site){
   }
 
   const scan = site.scans[site.scans.length-1];
-  const prevScan = site.scans.length > 1 ? site.scans[site.scans.length-2] : null;
+  const prevScan = site.scans.length>1 ? site.scans[site.scans.length-2] : null;
 
   let body = '';
-  if(state.activeTab === 'compliance') body = renderComplianceTab(site, scan);
-  else if(state.activeTab === 'legislation') body = renderLegislationTab();
-  else if(state.activeTab === 'risk') body = renderRiskTab(site, scan);
-  else if(state.activeTab === 'trust') body = renderTrustTab(scan);
+  if(state.activeTab==='compliance') body = renderComplianceTab(site, scan);
+  else if(state.activeTab==='legislation') body = renderLegislationTab();
+  else if(state.activeTab==='risk') body = renderRiskTab(site, scan);
+  else if(state.activeTab==='trust') body = renderTrustTab(scan);
 
   return `
     <div class="site-header">
@@ -786,10 +708,13 @@ function renderMain(site){
         <h1 class="disp">${site.domain}</h1>
         <div class="site-meta">
           NO. ${pad3(site.docketNum)} \u00B7 LAST SCANNED ${new Date(scan.timestamp).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}
-          ${prevScan ? renderDelta(scan, prevScan) : ''}
+          ${prevScan ? renderDelta(site, prevScan) : ''}
         </div>
       </div>
-      <button class="rescan-btn" id="btn-rescan">Re-scan now</button>
+      <div class="header-actions">
+        <button class="ff-btn" id="btn-fastforward" title="Demo only: ages all self-attested items by 100 days">\u23E9 Simulate 100 days (demo)</button>
+        <button class="rescan-btn" id="btn-rescan">Re-scan now</button>
+      </div>
     </div>
 
     <div class="reg-picker">
@@ -804,34 +729,36 @@ function renderMain(site){
       <button class="tab-btn ${state.activeTab==='risk'?'active':''}" data-tab="risk">RISK &amp; PRECEDENT</button>
       <button class="tab-btn ${state.activeTab==='trust'?'active':''}" data-tab="trust">PRIVACY TRUST</button>
     </div>
-
     ${body}
     <div class="foot-space"></div>
   `;
 }
 
-function renderDelta(scan, prevScan){
-  const cur = Math.round((scan.gdpr.score + scan.ccpa.score)/2);
-  const prev = Math.round((prevScan.gdpr.score + prevScan.ccpa.score)/2);
-  const diff = cur - prev;
-  if(diff === 0) return ' \u00B7 UNCHANGED SINCE LAST SCAN';
-  if(diff > 0) return ` \u00B7 <span class="delta-up">+${diff} PTS SINCE LAST SCAN</span>`;
+function renderDelta(site, prevScan){
+  const g = combinedGdprScore(site), c = combinedCcpaScore(site);
+  const cur = Math.round((g+c)/2);
+  const prevBlend = Math.round((
+    blendedScore(GDPR_SCANNED, prevScan.gdprScanned, GDPR_CHECKLIST, site.checklistState) +
+    blendedScore(CCPA_SCANNED, prevScan.ccpaScanned, CCPA_CHECKLIST, site.checklistState)
+  )/2);
+  const diff = cur - prevBlend;
+  if(diff===0) return ' \u00B7 UNCHANGED SINCE LAST SCAN';
+  if(diff>0) return ` \u00B7 <span class="delta-up">+${diff} PTS SINCE LAST SCAN</span>`;
   return ` \u00B7 <span class="delta-down">${diff} PTS SINCE LAST SCAN</span>`;
 }
 
 function renderScanningView(){
   const stepsHtml = SCAN_STEPS.map((s,i)=>{
-    let cls = 'scanning-step';
-    let mark = '\u00B7';
-    if(i < state.scanStepIndex){ cls += ' done'; mark = '\u2713'; }
-    else if(i === state.scanStepIndex){ cls += ' current'; mark = '\u2192'; }
+    let cls='scanning-step', mark='\u00B7';
+    if(i<state.scanStepIndex){ cls+=' done'; mark='\u2713'; }
+    else if(i===state.scanStepIndex){ cls+=' current'; mark='\u2192'; }
     return `<div class="${cls}"><span class="mark">${mark}</span>${s}</div>`;
   }).join('');
   return `
     <div class="empty-state">
       <h1 class="disp">Scanning ${state.scanTargetDomain}</h1>
       <div class="scanning-box">
-        <div class="cursor mono" style="margin-bottom:10px;">Running full-site crawl \u2014 this is simulated for the prototype.</div>
+        <div class="cursor mono" style="margin-bottom:10px;">Running full-site crawl of the logged-out surface \u2014 simulated for the prototype.</div>
         ${stepsHtml}
       </div>
     </div>
@@ -840,51 +767,51 @@ function renderScanningView(){
 
 function renderComplianceTab(site, scan){
   const regs = [];
-  if(site.selectedRegs.GDPR) regs.push({key:'GDPR', reqs:GDPR_REQS, data:scan.gdpr, label:'General Data Protection Regulation \u2014 EU / EEA'});
-  if(site.selectedRegs.CCPA) regs.push({key:'CCPA', reqs:CCPA_REQS, data:scan.ccpa, label:'California Consumer Privacy Act, as amended by CPRA'});
+  if(site.selectedRegs.GDPR) regs.push({key:'GDPR', scannedReqs:GDPR_SCANNED, scannedResults:scan.gdprScanned, checklist:GDPR_CHECKLIST, label:'General Data Protection Regulation \u2014 EU / EEA'});
+  if(site.selectedRegs.CCPA) regs.push({key:'CCPA', scannedReqs:CCPA_SCANNED, scannedResults:scan.ccpaScanned, checklist:CCPA_CHECKLIST, label:'California Consumer Privacy Act, as amended by CPRA'});
 
-  if(regs.length === 0){
-    return `<p class="section-note">No regulation selected \u2014 toggle GDPR or CCPA/CPRA above to see results.</p>`;
-  }
+  if(regs.length===0) return `<p class="section-note">No regulation selected \u2014 toggle GDPR or CCPA/CPRA above to see results.</p>`;
 
   const stampsHtml = regs.map(r=>{
-    const grade = gradeLabel(r.data.score);
+    const score = blendedScore(r.scannedReqs, r.scannedResults, r.checklist, site.checklistState);
+    const grade = gradeLabel(score);
     return `
       <div class="stamp-wrap">
-        <div class="stamp ${tierClass(grade)}">
-          <div class="grade disp">${grade}</div>
-          <div class="glabel">${r.key}</div>
-        </div>
+        <div class="stamp ${tierClass(grade)}"><div class="grade disp">${grade}</div><div class="glabel">${r.key}</div></div>
         <div>
-          <div class="stamp-num mono">${r.data.score}/100</div>
-          <div class="stamp-caption">Overall ${r.key} compliance score, weighted by requirement severity.</div>
+          <div class="stamp-num mono">${score}/100</div>
+          <div class="stamp-caption">Combined score \u2014 blends the automated scan with the self-attested checklist below.</div>
         </div>
       </div>
     `;
   }).join('');
 
   const blocksHtml = regs.map(r=>{
-    const rows = r.reqs.map(req=>{
-      const st = r.data.results[req.id];
+    const scannedRows = r.scannedReqs.map(req=>{
+      const st = r.scannedResults[req.id];
       const stClass = st.toLowerCase();
       let note = '';
-      if(st === 'Fail') note = `<div class="req-note fail">${req.hints.fail}</div>`;
-      else if(st === 'Partial') note = `<div class="req-note partial">${req.hints.partial}</div>`;
+      if(st==='Fail') note = `<div class="req-note fail">${req.hints.fail}</div>`;
+      else if(st==='Partial') note = `<div class="req-note partial">${req.hints.partial}</div>`;
       return `
         <div class="ledger-row">
           <div>
-            <div class="req-text"><span class="req-code">${req.code}</span>${req.text}</div>
+            <div class="req-text"><span class="source-tag">Scanned</span><span class="req-code">${req.code}</span>${req.text}</div>
             ${note}
           </div>
           <div class="status-badge ${stClass}">${st}</div>
         </div>
       `;
     }).join('');
+
+    const checklistRows = r.checklist.map(item=>renderChecklistItem(site, item)).join('');
+
     return `
       <div class="reg-block">
         <h3 class="disp">${r.key}</h3>
         <div class="reg-sub">${r.label}</div>
-        <div class="ledger">${rows}</div>
+        <div class="ledger">${scannedRows}</div>
+        <div class="ledger">${checklistRows}</div>
       </div>
     `;
   }).join('');
@@ -892,24 +819,94 @@ function renderComplianceTab(site, scan){
   return `<div class="stamp-row">${stampsHtml}</div>${blocksHtml}`;
 }
 
+function renderChecklistItem(site, item){
+  const st = site.checklistState[item.id];
+  const draft = getDraft(site.id, item.id);
+  const checked = !!(st && st.checked);
+
+  let statusBadge = `<span class="status-badge pending">Pending</span>`;
+  if(!checked) statusBadge = `<span class="status-badge fail">Fail</span>`;
+  else if(st.status) statusBadge = `<span class="status-badge ${st.status.toLowerCase()}">${st.status}</span>`;
+
+  let bodyHtml = '';
+  if(checked){
+    if(st.needsFollowUp && !st.finalized){
+      bodyHtml = `
+        <div class="checklist-body">
+          <textarea class="checklist-textarea" data-desc-for="${item.id}" placeholder="Briefly describe how this works today\u2026">${draft.description}</textarea>
+          <div class="checklist-file-row">
+            <label class="file-btn">\uD83D\uDCCE Attach screenshot (optional)
+              <input type="file" accept="image/*" data-shot-for="${item.id}" style="display:none;">
+            </label>
+            ${draft.screenshot ? `<img class="thumb-preview" src="${draft.screenshot}">` : ''}
+          </div>
+          <div class="followup-box">
+            <div class="followup-q">${st.followUpQuestion}</div>
+            <div class="followup-sketch">${st.sketch}</div>
+            <textarea class="checklist-textarea" data-followup-for="${item.id}" placeholder="Your answer\u2026">${draft.followUpAnswer}</textarea>
+            <button class="submit-btn" data-finalize-for="${item.id}">Submit answer for review</button>
+          </div>
+        </div>
+      `;
+    } else if(st.finalized){
+      const staleDays = st.attestedAt ? Math.floor((Date.now()-st.attestedAt)/86400000) : 0;
+      const isStale = staleDays > STALE_DAYS;
+      bodyHtml = `
+        <div class="checklist-body">
+          <div class="result-box">
+            <span class="confidence-tag">Confidence: ${st.confidence}</span>
+            ${isStale ? `<span class="stale-badge">Needs re-attestation</span>` : ''}
+          </div>
+          <div class="rationale-text">${st.rationale}</div>
+          <div class="attested-meta">Attested ${staleDays===0?'today':staleDays+' day'+(staleDays===1?'':'s')+' ago'}${isStale ? ' \u2014 stale, last-known status still counted toward score.' : '.'}</div>
+        </div>
+      `;
+    } else {
+      bodyHtml = `
+        <div class="checklist-body">
+          <textarea class="checklist-textarea" data-desc-for="${item.id}" placeholder="Briefly describe how this works today\u2026">${draft.description}</textarea>
+          <div class="checklist-file-row">
+            <label class="file-btn">\uD83D\uDCCE Attach screenshot (optional)
+              <input type="file" accept="image/*" data-shot-for="${item.id}" style="display:none;">
+            </label>
+            ${draft.screenshot ? `<img class="thumb-preview" src="${draft.screenshot}">` : ''}
+          </div>
+          <button class="submit-btn" data-submit-for="${item.id}">Submit for review</button>
+        </div>
+      `;
+    }
+  }
+
+  return `
+    <div class="checklist-item">
+      <div class="checklist-head-row">
+        <div class="checklist-check-row">
+          <input type="checkbox" id="chk-${item.id}" data-check-for="${item.id}" ${checked?'checked':''}>
+          <div>
+            <label class="checklist-label" for="chk-${item.id}"><span class="source-tag attested">Self-attested</span><span class="req-code">${item.code}</span>${item.text}</label>
+            <div class="checklist-guidance">${item.guidance}</div>
+          </div>
+        </div>
+        ${statusBadge}
+      </div>
+      ${bodyHtml}
+    </div>
+  `;
+}
+
 function renderLegislationTab(){
   const regions = ['All', ...new Set(BILLS.map(b=>b.region))];
   const statuses = ['All', ...new Set(BILLS.map(b=>b.status))];
-
   const filtered = BILLS.filter(b=>{
-    const rOk = state.legFilterRegion === 'All' || b.region === state.legFilterRegion;
-    const sOk = state.legFilterStatus === 'All' || b.status === state.legFilterStatus;
+    const rOk = state.legFilterRegion==='All' || b.region===state.legFilterRegion;
+    const sOk = state.legFilterStatus==='All' || b.status===state.legFilterStatus;
     return rOk && sOk;
   });
-
   const cardsHtml = filtered.map(b=>`
     <div class="bill-card">
       <div class="bill-top">
         <div class="bill-name disp">${b.name}</div>
-        <div class="bill-tags">
-          <span class="tag">${b.region}</span>
-          <span class="tag">${b.status}</span>
-        </div>
+        <div class="bill-tags"><span class="tag">${b.region}</span><span class="tag">${b.status}</span></div>
       </div>
       <div class="bill-summary">${b.summary}</div>
       <div class="bill-meta">
@@ -932,25 +929,41 @@ function renderLegislationTab(){
 
 function renderRiskTab(site, scan){
   const combined = [];
-  if(site.selectedRegs.GDPR) GDPR_REQS.forEach(r=>combined.push({reg:'GDPR', req:r, status:scan.gdpr.results[r.id]}));
-  if(site.selectedRegs.CCPA) CCPA_REQS.forEach(r=>combined.push({reg:'CCPA', req:r, status:scan.ccpa.results[r.id]}));
+  if(site.selectedRegs.GDPR){
+    GDPR_SCANNED.forEach(r=>combined.push({reg:'GDPR', kind:'scanned', req:r, status:scan.gdprScanned[r.id]}));
+    GDPR_CHECKLIST.forEach(item=>{
+      const st = site.checklistState[item.id];
+      const status = (st && st.finalized) ? st.status : (st && st.checked ? 'Partial' : 'Fail');
+      combined.push({reg:'GDPR', kind:'attested', req:item, status});
+    });
+  }
+  if(site.selectedRegs.CCPA){
+    CCPA_SCANNED.forEach(r=>combined.push({reg:'CCPA', kind:'scanned', req:r, status:scan.ccpaScanned[r.id]}));
+    CCPA_CHECKLIST.forEach(item=>{
+      const st = site.checklistState[item.id];
+      const status = (st && st.finalized) ? st.status : (st && st.checked ? 'Partial' : 'Fail');
+      combined.push({reg:'CCPA', kind:'attested', req:item, status});
+    });
+  }
 
   const risky = combined.filter(c=>c.status==='Fail' || c.status==='Partial');
   risky.sort((a,b)=>{
-    const statusWeight = s => s==='Fail' ? 2 : 1;
-    const sa = SEV_WEIGHT[a.req.sev]*10 + statusWeight(a.status);
-    const sb = SEV_WEIGHT[b.req.sev]*10 + statusWeight(b.status);
-    return sb - sa;
+    const sw = s => s==='Fail' ? 2 : 1;
+    const sa = SEV_WEIGHT[a.req.sev]*10 + sw(a.status);
+    const sb = SEV_WEIGHT[b.req.sev]*10 + sw(b.status);
+    return sb-sa;
   });
   const top = risky.slice(0,5);
 
-  if(top.length === 0){
-    return `<p class="section-note">No material risks surfaced by this scan across the selected regulations \u2014 nice work. Re-scan periodically as the site changes.</p>`;
+  if(top.length===0){
+    return `<p class="section-note">No material risks surfaced across the selected regulations \u2014 nice work. Re-scan and re-attest periodically as the site changes.</p>`;
   }
 
   const itemsHtml = top.map((c,i)=>{
     const fine = FINES[c.req.id];
-    const remedyText = c.status==='Fail' ? c.req.hints.fail : c.req.hints.partial;
+    const remedyText = c.kind==='scanned'
+      ? (c.status==='Fail' ? c.req.hints.fail : c.req.hints.partial)
+      : (c.kind==='attested' ? (c.status==='Fail' ? 'Not yet implemented, or not yet attested with enough detail to confirm.' : 'Self-attested but not fully confirmed \u2014 see the checklist for details.') : '');
     const precedentHtml = fine ? `
       <div class="precedent">
         <div class="pre-label">Comparable enforcement pattern</div>
@@ -963,7 +976,7 @@ function renderRiskTab(site, scan){
       <div class="risk-item">
         <div class="risk-rank disp">${i+1}</div>
         <div>
-          <div class="risk-title">[${c.reg}] ${c.req.text}</div>
+          <div class="risk-title">[${c.reg} \u00B7 ${c.kind==='scanned'?'Scanned':'Self-attested'}] ${c.req.text}</div>
           <div class="risk-sev">${SEV_LABEL[c.req.sev]} \u00B7 Currently: ${c.status}</div>
           <div class="risk-remedy">${remedyText}</div>
           ${precedentHtml}
@@ -972,40 +985,30 @@ function renderRiskTab(site, scan){
     `;
   }).join('');
 
-  return `
-    ${itemsHtml}
-    <div class="risk-disclaimer">Enforcement examples above are composite / illustrative, built for this prototype \u2014 they are not verified real-world fines and should not be treated as predictive of any actual outcome.</div>
-  `;
+  return `${itemsHtml}<div class="risk-disclaimer">Enforcement examples above are composite / illustrative, built for this prototype \u2014 they are not verified real-world fines and should not be treated as predictive of any actual outcome.</div>`;
 }
 
 function renderTrustTab(scan){
   const grade = gradeLabel(scan.trust.score);
   const catsHtml = TRUST_CATS.map(c=>{
     const score = scan.trust.scores[c.id];
-    const tier = score >= 80 ? 'good' : score >= 55 ? 'moderate' : 'weak';
-    const color = tier==='good' ? 'var(--verdigris)' : tier==='moderate' ? 'var(--amber)' : 'var(--redline)';
+    const tier = score>=80?'good':score>=55?'moderate':'weak';
+    const color = tier==='good'?'var(--verdigris)':tier==='moderate'?'var(--amber)':'var(--redline)';
     return `
       <div class="trust-cat">
-        <div class="trust-cat-head">
-          <div class="trust-cat-name">${c.name}</div>
-          <div class="trust-cat-score mono">${score}/100</div>
-        </div>
+        <div class="trust-cat-head"><div class="trust-cat-name">${c.name}</div><div class="trust-cat-score mono">${score}/100</div></div>
         <div class="bar-track"><div class="bar-fill" style="width:${score}%; background:${color};"></div></div>
         <div class="trust-cat-note">${c.notes[tier]}</div>
       </div>
     `;
   }).join('');
-
   return `
     <div class="stamp-row">
       <div class="stamp-wrap">
-        <div class="stamp ${tierClass(grade)}">
-          <div class="grade disp">${grade}</div>
-          <div class="glabel">TRUST</div>
-        </div>
+        <div class="stamp ${tierClass(grade)}"><div class="grade disp">${grade}</div><div class="glabel">TRUST</div></div>
         <div>
           <div class="stamp-num mono">${scan.trust.score}/100</div>
-          <div class="stamp-caption">Independent of legal compliance \u2014 measures how transparent and trustworthy the site\u2019s privacy practices feel to an end user.</div>
+          <div class="stamp-caption">Independent of legal compliance \u2014 measures how transparent the site\u2019s privacy practices feel to an end user.</div>
         </div>
       </div>
     </div>
@@ -1039,35 +1042,108 @@ function attachHandlers(site){
   });
 
   const rescanBtn = document.getElementById('btn-rescan');
-  if(rescanBtn) rescanBtn.addEventListener('click', ()=>{
-    if(site) startScan(site.domain, site);
+  if(rescanBtn) rescanBtn.addEventListener('click', ()=>{ if(site) startScan(site.domain, site); });
+
+  const ffBtn = document.getElementById('btn-fastforward');
+  if(ffBtn) ffBtn.addEventListener('click', ()=>{
+    if(!site) return;
+    Object.values(site.checklistState).forEach(st=>{
+      if(st && st.attestedAt) st.attestedAt -= 100*86400000;
+    });
+    render();
   });
 
   document.querySelectorAll('.reg-toggle').forEach(el=>{
     el.addEventListener('click', ()=>{
       if(!site) return;
-      const reg = el.getAttribute('data-reg');
-      site.selectedRegs[reg] = !site.selectedRegs[reg];
+      site.selectedRegs[el.getAttribute('data-reg')] = !site.selectedRegs[el.getAttribute('data-reg')];
       render();
     });
   });
 
   document.querySelectorAll('.tab-btn').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      state.activeTab = el.getAttribute('data-tab');
+    el.addEventListener('click', ()=>{ state.activeTab = el.getAttribute('data-tab'); render(); });
+  });
+
+  const regionFilter = document.getElementById('leg-region-filter');
+  if(regionFilter) regionFilter.addEventListener('change', (e)=>{ state.legFilterRegion = e.target.value; render(); });
+  const statusFilter = document.getElementById('leg-status-filter');
+  if(statusFilter) statusFilter.addEventListener('change', (e)=>{ state.legFilterStatus = e.target.value; render(); });
+
+  if(!site) return;
+
+  document.querySelectorAll('[data-check-for]').forEach(el=>{
+    el.addEventListener('change', (e)=>{
+      const itemId = el.getAttribute('data-check-for');
+      const checked = e.target.checked;
+      if(!site.checklistState[itemId]) site.checklistState[itemId] = {};
+      site.checklistState[itemId].checked = checked;
+      if(!checked){
+        site.checklistState[itemId] = {checked:false};
+      }
       render();
     });
   });
 
-  const regionFilter = document.getElementById('leg-region-filter');
-  if(regionFilter) regionFilter.addEventListener('change', (e)=>{
-    state.legFilterRegion = e.target.value;
-    render();
+  document.querySelectorAll('[data-desc-for]').forEach(el=>{
+    el.addEventListener('input', (e)=>{
+      getDraft(site.id, el.getAttribute('data-desc-for')).description = e.target.value;
+    });
   });
-  const statusFilter = document.getElementById('leg-status-filter');
-  if(statusFilter) statusFilter.addEventListener('change', (e)=>{
-    state.legFilterStatus = e.target.value;
-    render();
+  document.querySelectorAll('[data-followup-for]').forEach(el=>{
+    el.addEventListener('input', (e)=>{
+      getDraft(site.id, el.getAttribute('data-followup-for')).followUpAnswer = e.target.value;
+    });
+  });
+  document.querySelectorAll('[data-shot-for]').forEach(el=>{
+    el.addEventListener('change', (e)=>{
+      const itemId = el.getAttribute('data-shot-for');
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        getDraft(site.id, itemId).screenshot = reader.result;
+        render();
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+
+  document.querySelectorAll('[data-submit-for]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const itemId = el.getAttribute('data-submit-for');
+      const item = [...GDPR_CHECKLIST, ...CCPA_CHECKLIST].find(i=>i.id===itemId);
+      const draft = getDraft(site.id, itemId);
+      const result = reviewSubmission(item, draft.description, !!draft.screenshot, '');
+      if(result.needsFollowUp){
+        site.checklistState[itemId] = {
+          checked:true, finalized:false, needsFollowUp:true,
+          followUpQuestion: result.followUpQuestion, sketch: result.sketch,
+        };
+      } else {
+        site.checklistState[itemId] = {
+          checked:true, finalized:true, needsFollowUp:false,
+          status: result.status, confidence: result.confidence, rationale: result.rationale,
+          attestedAt: Date.now(),
+        };
+      }
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-finalize-for]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const itemId = el.getAttribute('data-finalize-for');
+      const item = [...GDPR_CHECKLIST, ...CCPA_CHECKLIST].find(i=>i.id===itemId);
+      const draft = getDraft(site.id, itemId);
+      const result = reviewSubmission(item, draft.description, !!draft.screenshot, draft.followUpAnswer || 'no further detail provided');
+      site.checklistState[itemId] = {
+        checked:true, finalized:true, needsFollowUp:false,
+        status: result.status, confidence: result.confidence, rationale: result.rationale,
+        attestedAt: Date.now(),
+      };
+      render();
+    });
   });
 }
 
@@ -1103,10 +1179,10 @@ function finishScan(domain, existingSite){
       addedAt: Date.now(),
       selectedRegs: {GDPR:true, CCPA:true},
       scans: [scan],
+      checklistState: {},
     });
     state.selectedSiteId = id;
   }
-
   state.scanning = false;
   state.activeTab = 'compliance';
   render();
