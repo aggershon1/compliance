@@ -2,6 +2,26 @@
 
 All notable changes to this prototype are logged here.
 
+## [0.3.0] — Review feedback batch (regional variants, overrides, plain language, jurisdiction filter, UX/export, recommendations)
+
+### Added
+- **Regional site variants**: a site can be scanned as US / EU / Switzerland / Global, seeding materially different simulated results for the same domain (most visibly on the GDPR cookie-consent requirement, to model cases like BetterHelp's differing US/EU cookie banners). Adding the same domain under a different variant creates a separate docket entry so they can sit side by side.
+- **Manual override with required explanation** on every result, scanned or self-attested. Stored per site/requirement (not destructive to the original result), factored into the blended score, and tracked across scans in-session — a requirement overridden more than once surfaces a "may need recalibrating" flag.
+- **Hover tooltips on every citation** (e.g. "Art. 6") showing the article's title and a plain summary of its operative text.
+- **Plain-language explanation** on every requirement (scanned and self-attested), shown directly under the requirement text — distinct from the hover legal text.
+- **Country/jurisdiction filter**: pick countries (US, EU member states, Switzerland) alongside the direct GDPR/CCPA toggles; selecting a country auto-includes whichever regulation applies. Both entry points combine.
+- **Export PDF report** — generates a clean, stakeholder-shareable summary (grade, top gaps, risk highlights, trust score) via the browser print dialog.
+- **Recommendations tab** — every open gap (scanned or self-attested) with its plain-language explanation and 2–3 concrete, spec-ready fix proposals.
+
+### Changed
+- **Grade stamp caption** now explains *why* the score is what it is (top 1–2 contributing gaps by severity), instead of describing the scoring mechanism.
+- **Visual/UX pass**: larger base type size and line height, hover states and subtle depth on interactive rows/cards, tightened spacing.
+- Internal refactor: scanned results are now stored per-regulation (`scan.scanned.GDPR` / `scan.scanned.CCPA`) and a shared `itemEffectiveStatus()` helper (which respects overrides) is used consistently across the Compliance, Recommendations, and Risk & Precedent tabs and the PDF export, instead of each tab recomputing status independently.
+
+### Notes
+- Override history and the "overridden N times" learning flag are session-only in this prototype (reset on reload) — a real build would persist this server-side and aggregate across the org, per `SPEC.md` Phase 1.
+- All new logic (blended scoring with overrides, country→regulation resolution, the EU/US consent-bias simulation, and the checklist review's follow-up flow) was verified with a standalone test pass against the core functions before shipping.
+
 ## [0.2.0] — Dual-track compliance model
 
 ### Added

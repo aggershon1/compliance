@@ -101,6 +101,29 @@ Front-end only, fully interactive, all data simulated: deterministic mock scan r
 
 ---
 
+## v0.3.0 additions (from review feedback)
+
+### Regional site variants
+A site can be scanned as a specific regional version (United States / European Union / Switzerland / Global default) rather than treated as one undifferentiated entity. This directly addresses cases like BetterHelp, where the US site and the EU site show materially different cookie-consent behavior. Adding the same domain again under a different variant creates a separate docket entry so the two can be compared side by side. The regional variant also sets sensible default jurisdiction/regulation scope for that entry.
+
+### Manual override with stored explanation
+Every individual result \u2014 scanned or self-attested \u2014 can be overridden with a required explanation. The override is layered on top of the original result (not destructive), shown as "Overridden: [old] \u2192 [new] \u2014 [explanation]," and factored into the blended score in place of the original. Overrides are tracked per requirement across scans in the session; once the same requirement has been overridden more than once, the UI surfaces a flag that the underlying detection logic may need recalibrating. (In a real backend, this history would persist and aggregate across the org, not just the current browser session \u2014 see Phase 1.)
+
+### Hover-to-read full article text
+Every citation code (e.g. "Art. 6," "\u00A71798.135") is hoverable and shows the article's title and a plain summary of its operative text, so the citation itself isn't just a dead label.
+
+### Plain-language explanation per requirement
+Every requirement, scanned or self-attested, now carries a short layman's-terms explanation shown directly under the requirement text \u2014 separate from the hover-to-read legal text, and aimed at someone (e.g. a PM) who isn't fluent in the regulation.
+
+### Filter by country, in addition to by regulation
+A country/jurisdiction picker (starting with the US and the individual EU member states, plus Switzerland) sits alongside the direct regulation toggles. Selecting a country automatically pulls in whichever regulation applies (EU countries and Switzerland \u2192 GDPR; US \u2192 CCPA only if California is selected). Both entry points stay available and combine rather than replace each other.
+
+### Visual/UX pass + PDF export
+Increased base type size and line height, added hover states and subtle depth/shadow to interactive elements, and tightened up spacing that felt too loose. Added an "Export PDF report" action that generates a clean, stakeholder-shareable summary (grade, top gaps, risk highlights, trust score) using the browser's print dialog.
+
+### Grade explanation + Recommendations tab
+The grade stamp's caption now explains *why* the score is what it is \u2014 naming the top 1\u20132 contributing gaps by severity \u2014 instead of describing the scoring mechanism. A new Recommendations tab lists every open gap (scanned or self-attested) with its plain-language explanation and 2\u20133 concrete, spec-ready proposals for closing it, distinct from the Risk & Precedent tab, which is about severity/exposure rather than fixes.
+
 ## Legal disclaimer (unchanged)
 
 This tool provides informational guidance only, not legal advice. Consult qualified counsel before making formal compliance decisions. Enforcement examples referenced anywhere in the product are illustrative unless explicitly sourced and verified.
