@@ -77,13 +77,26 @@ Notify when a bill relevant to your jurisdictions lands on the docket, changes s
 
 Requires replacing the static `BILLS` seed with a real ingestion pipeline (state legislature feeds, EU Official Journal, regulator enforcement pages), plus accounts and a delivery channel (email/Slack/in-app). Filtering by a site's selected countries already exists and would drive relevance.
 
-### 5. Spec / proposal review
+### 5. Remediation guidance — recommendations **and** proposal review
 
-Upload or paste a spec, PRD, or proposal describing how you intend to close an open finding, and get feedback on whether it actually satisfies the requirement — before the work is built.
+Two directions, both available, neither gating the other:
 
-This inverts the previously planned "policy-drafting assistant": rather than the tool drafting language for you, you bring the plan and it critiques it against the specific citation, flagging what the requirement demands that the proposal doesn't address. It's the natural companion to the Recommendations tab — recommendations say *what* to fix; this checks whether your plan *actually* fixes it.
+**Tool → you (suggest an approach).** Deepen what the Recommendations tab does today. Current proposals are static text hardcoded per requirement; these would be contextual — informed by what the audit actually found in your product, what you've already attested, and which countries are in scope.
 
-Requires a real model call, hence a backend to hold the API key. Would also replace the keyword-heuristic checklist reviewer with the same infrastructure.
+**You → tool (review my approach).** Upload or paste a spec, PRD, or proposal describing how you intend to close an open finding, and get feedback on whether it actually satisfies the requirement — before the work is built, when changing it is still cheap.
+
+**The critical design constraint:** proposal review must evaluate a plan against **the requirement**, not against the tool's own suggestion. There are many valid ways to satisfy a given article, and a house style that diverges from the recommended pattern is not a deficiency. A team may have good reasons — existing architecture, an established design system, prior legal guidance — for an approach the tool wouldn't have proposed.
+
+So the review answers:
+- Does this satisfy the citation, and where does it fall short if not?
+- What does the requirement demand that the proposal doesn't address?
+- What evidence would need to exist afterward to attest this — ideally the same evidence the source-audit rules or checklist would later look for?
+
+It must never answer "this isn't how we'd do it." Divergence from the recommendation is only worth raising when it creates an actual compliance gap, and that gap should be named against the legal text rather than against the tool's preference. A tool that quietly penalizes teams for not matching its house style would be worse than no tool — it would push toward uniform implementations rather than compliant ones.
+
+A reviewed proposal is also a natural attestation artifact: the plan, the review, and the eventual evidence form a chain worth carrying into the audit log (item 2).
+
+Requires a real model call, hence a backend to hold the API key. The same infrastructure would replace the keyword-heuristic checklist reviewer.
 
 ---
 
