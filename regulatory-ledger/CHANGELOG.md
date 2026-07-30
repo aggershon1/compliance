@@ -2,6 +2,25 @@
 
 All notable changes to this prototype are logged here.
 
+## [Unreleased #2] — Settings dropdown, scanned/self-attested split with grade gating, Risk & Precedent merged in, real enforcement cases
+
+**Not yet merged to main — stacked on top of the still-open Unreleased batch below, pushed for review on its own branch.**
+
+### Added
+- **Settings moved to a top-right dropdown** in the masthead (⚙ Settings), out of the tab row. Still just the severity-weighting sliders for now.
+- **Compliance Results now visually splits each regulation into a Scanned section and a Self-attested section**, with a section label on each.
+- **Final grade is withheld until every self-attested item is resolved** (finalized through review, or manually overridden) — the grade stamp shows "—" with a provisional score and an explanatory caption instead of a letter grade, and the docket sidebar chip shows "PENDING" the same way, until every self-attested item for that regulation is resolved.
+- **Risk & Precedent is no longer a separate tab** — it's merged into Compliance Results: every failing/partial item (scanned or self-attested) shows its own comparable enforcement action inline, and a "Potential exposure" range (aggregated across all current gaps, grouped by currency) sits near the top, by the grade stamps.
+- Overriding a scanned item continues to auto-recompute the blended score immediately (this already worked via the existing render-on-every-change architecture; verified, not new plumbing).
+
+### Changed
+- **Enforcement cases (`FINES`) now cite real, publicly reported regulatory actions** — named company, regulator, year, and amount (e.g. Meta/Irish DPC/€1.2B for EU-US transfers, Sephora/California AG/$1.2M for Do Not Sell violations) — replacing the earlier anonymized "composite case" placeholders. Every mention is explicitly labeled as a real case cited for comparison to the *type* of violation, not a claim about the site being reviewed. `README.md` updated accordingly per this repo's "say so explicitly" convention for de-mocking data.
+- Reduced homepage spacing further — `.empty-state` margin-top is now 0 (relies solely on `.main`'s existing top padding).
+
+### Notes — still open
+- **The "vs. Competitors" tab still uses generic placeholder labels** ("Competitor A/B/C"). Naming real competitors requires knowing which real companies apply to whatever site is being scanned — that's genuinely site-specific and was pending user input as of this entry.
+- Gating only affects the *display* of the final grade (stamp + docket chip); `blendedScore()` itself is unchanged and still returns a number for every other consumer (Recommendations sorting, Print report, exposure calculations, etc.) — those intentionally keep working off the underlying number so nothing downstream breaks while a grade is "pending."
+
 ## [Unreleased] — Country model rework, evidence hover, competitor benchmark, settings, fuzzy review matching
 
 **Not yet merged to main — pushed for review on a feature branch.**

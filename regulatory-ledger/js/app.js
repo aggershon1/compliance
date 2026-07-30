@@ -26,6 +26,7 @@ const state = {
   collapsedItems: {},
   manualCountryInput: {},       // per-site draft text for the post-scan "add a country" box
   sevWeights: {...DEFAULT_SEV_WEIGHT},
+  settingsMenuOpen: false,       // top-right Settings dropdown (weighting only, for now)
 };
 
 const SCAN_STEPS = [
@@ -209,6 +210,9 @@ function attachHandlers(site){
   document.querySelectorAll('.tab-btn').forEach(el=>{
     el.addEventListener('click', ()=>{ state.activeTab = el.getAttribute('data-tab'); render(); });
   });
+
+  const settingsToggle = document.getElementById('btn-settings-toggle');
+  if(settingsToggle) settingsToggle.addEventListener('click', ()=>{ state.settingsMenuOpen = !state.settingsMenuOpen; render(); });
 
   const regionFilter = document.getElementById('leg-region-filter');
   if(regionFilter) regionFilter.addEventListener('change', (e)=>{ state.legFilterRegion = e.target.value; render(); });
