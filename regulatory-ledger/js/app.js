@@ -9,7 +9,11 @@ const state = {
   scanStepIndex: 0,
   scanTargetDomain: '',
   scanningExistingSiteId: null,
+  scanKind: 'url',              // 'url' (simulated crawl) or 'code' (real source audit)
+  codeAuditProgress: null,      // {read, total} while a source audit is running
   showNewScanForm: false,
+  newScanMode: 'url',           // which entry path the New Scan form is showing
+  pendingCodeFileCount: 0,      // count of files picked in the folder input (files themselves live outside state)
   newScanCountries: [],        // country codes checked in the New Scan form
   newScanManualCountries: [],  // [{name}] added via free-text in the New Scan form
   newScanManualInput: '',      // draft text for the manual-add box
@@ -29,6 +33,11 @@ const state = {
   sevWeights: {...DEFAULT_SEV_WEIGHT},
   settingsMenuOpen: false,       // top-right Settings dropdown (weighting only, for now)
 };
+
+/* Selected folder files for a pending source audit. Deliberately a module
+   variable, not state: render() rebuilds the DOM (losing the file input's
+   selection), and File handles aren't serializable state anyway. */
+let pendingCodeFiles = null;
 
 const SCAN_STEPS = [
   'Crawling site structure (logged-out pages only)…',
@@ -121,15 +130,36 @@ function attachHandlers(site){
     });
   });
 
+  document.querySelectorAll('[data-scan-mode]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      state.newScanMode = el.getAttribute('data-scan-mode');
+      state.newScanError = false;
+      render();
+    });
+  });
+
+  const codeFolderInput = document.getElementById('code-folder-input');
+  if(codeFolderInput) codeFolderInput.addEventListener('change', (e)=>{
+    pendingCodeFiles = e.target.files.length ? Array.from(e.target.files) : null;
+    state.pendingCodeFileCount = pendingCodeFiles ? pendingCodeFiles.length : 0;
+    state.newScanError = false;
+    render();
+  });
+
   const newForm = document.getElementById('new-scan-form');
   if(newForm) newForm.addEventListener('submit', (e)=>{
     e.preventDefault();
-    const val = document.getElementById('new-scan-input').value;
     if(state.newScanCountries.length===0 && state.newScanManualCountries.length===0){
-      state.newScanError = true;
+      state.newScanError = 'Select or add at least one country before scanning.';
       render();
       return;
     }
+    if(state.newScanMode === 'code'){
+      if(pendingCodeFiles && pendingCodeFiles.length) startCodeAudit(pendingCodeFiles);
+      else { state.newScanError = 'Choose your repo folder before running the audit.'; render(); }
+      return;
+    }
+    const val = document.getElementById('new-scan-input').value;
     if(val && val.trim()) startScan(cleanDomain(val));
   });
 
@@ -143,7 +173,7 @@ function attachHandlers(site){
   });
 
   const rescanBtn = document.getElementById('btn-rescan');
-  if(rescanBtn) rescanBtn.addEventListener('click', ()=>{ if(site) startScan(site.domain, site); });
+  if(rescanBtn) rescanBtn.addEventListener('click', ()=>{ if(site && site.kind!=='code') startScan(site.domain, site); });
 
   const exportBtn = document.getElementById('btn-export');
   if(exportBtn) exportBtn.addEventListener('click', ()=>{
@@ -405,6 +435,7 @@ function attachHandlers(site){
 
 function startScan(domain, existingSite){
   state.scanning = true;
+  state.scanKind = 'url';
   state.scanningExistingSiteId = existingSite ? existingSite.id : null;
   state.scanTargetDomain = domain;
   state.scanStepIndex = 0;
@@ -450,6 +481,91 @@ function finishScan(domain, existingSite){
   }
   state.scanning = false;
   state.scanningExistingSiteId = null;
+  state.activeTab = 'compliance';
+  render();
+}
+
+/* ============================================================
+   SOURCE AUDIT LIFECYCLE (Track 3 — real analysis, NOT simulated)
+   ============================================================ */
+async function startCodeAudit(files){
+  const rootName = codeAuditRootName(files);
+  state.scanning = true;
+  state.scanKind = 'code';
+  state.scanningExistingSiteId = null;
+  state.scanTargetDomain = rootName;
+  state.codeAuditProgress = {read:0, total:0};
+  state.showNewScanForm = false;
+  render();
+
+  const audit = await analyzeCodebase(files, (read, total)=>{
+    state.codeAuditProgress = {read, total};
+    render();
+  });
+
+  if(audit.analyzedFiles === 0){
+    state.scanning = false;
+    state.codeAuditProgress = null;
+    state.showNewScanForm = true;
+    state.newScanError = 'No readable source files found in that folder — check that you selected the repo root, not a build output or empty directory.';
+    render();
+    return;
+  }
+  finishCodeAudit(rootName, audit);
+}
+
+function finishCodeAudit(rootName, audit){
+  const countryCodes = state.newScanCountries;
+  const manualCountries = state.newScanManualCountries;
+
+  // Scanned-track statuses come straight from the audit verdicts — every
+  // scanned rule defines an `absent` status, so this is always populated.
+  const scannedGDPR = {}; GDPR_SCANNED.forEach(r=>{ scannedGDPR[r.id] = audit.results[r.id].status; });
+  const scannedCCPA = {}; CCPA_SCANNED.forEach(r=>{ scannedCCPA[r.id] = audit.results[r.id].status; });
+
+  const scan = {
+    timestamp: audit.analyzedAt,
+    scanned: {GDPR: scannedGDPR, CCPA: scannedCCPA},
+    trust: null,   // Privacy Trust measures the public-facing site, not source — see renderTrustTab
+    source: 'code',
+  };
+
+  // Checklist items with real evidence are auto-attested from source; the
+  // rest stay unattested so the normal self-attestation flow + grade gating
+  // still apply — the audit narrows the manual work, it doesn't skip the gate.
+  const checklistState = {};
+  [...GDPR_CHECKLIST, ...CCPA_CHECKLIST].forEach(item=>{
+    const r = audit.results[item.id];
+    if(r && r.found){
+      checklistState[item.id] = {
+        checked:true, finalized:true, needsFollowUp:false,
+        status:r.status, confidence:r.confidence, rationale:r.rationale,
+        attestedAt: audit.analyzedAt, fromCode:true,
+      };
+    }
+  });
+
+  const id = 'site-' + Date.now();
+  const docketNum = state.nextDocketNum++;
+  state.sites.push({
+    id, domain: rootName, docketNum,
+    kind: 'code',
+    addedAt: Date.now(),
+    manualRegs: defaultManualRegsFromCountries(countryCodes),
+    selectedCountries: [...countryCodes],
+    manualCountries: manualCountries.map(m=>({...m})),
+    manualCompetitors: [],
+    scans: [scan],
+    checklistState,
+    overrides: {},
+    codeEvidence: audit.results,
+    codeStats: {totalFiles: audit.totalFiles, analyzedFiles: audit.analyzedFiles, skippedFiles: audit.skippedFiles},
+  });
+  state.selectedSiteId = id;
+  pendingCodeFiles = null;
+  state.pendingCodeFileCount = 0;
+  state.codeAuditProgress = null;
+  state.scanning = false;
   state.activeTab = 'compliance';
   render();
 }

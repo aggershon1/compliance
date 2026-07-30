@@ -2,6 +2,19 @@
 
 All notable changes to this prototype are logged here.
 
+## [0.6.0] — Source audit: upload a codebase for real analysis
+
+### Added
+- **Track 3 — Source audit.** The New Scan form now offers two entry paths: "Scan a website" (existing, simulated) or "Audit a codebase" — pick a repo folder you're authorized to audit and it's analyzed **for real, entirely in the browser** (files are never uploaded anywhere; vendor/build directories and binaries are skipped automatically). New `js/codeaudit.js` engine + `CODE_AUDIT_RULES` in `data.js`.
+- Every requirement gets a verdict grounded in actual matched source: status, confidence, rationale, and an "evidence" hover citing real file, line, and snippet — the real counterpart to the simulated "why?" hover on URL scans.
+- **Checklist items with solid evidence are auto-attested from source** (labeled "Auto-attested from source audit", overridable, subject to normal 90-day staleness). Items with no evidence stay unattested with an explanatory hint, so the final-grade gate from 0.5.0 still applies unchanged.
+- Scanned-track requirements that can't live in code (breach runbooks, records of processing, policy copy shipped from another repo) come back **Pending** with an explanation rather than Fail — absence of evidence in one repo isn't evidence of absence. Requirements an implementing repo *should* contain (e.g. consent-management code) do Fail on absence, with a note pointing at the override if the implementation lives elsewhere.
+- Source-audited docket entries show a "source audit" tag, file counts in the header, no Re-scan button (files aren't retained — re-upload to re-audit), and an explanatory note instead of a Privacy Trust score (trust measures the public-facing site).
+
+### Notes — first de-mocked capability, flagged per this repo's convention
+- **This is the first real (non-simulated) analysis in the prototype.** `README.md`'s real-vs-mocked table and `SPEC.md` (new "Track 3" section) updated accordingly. It is pattern-based evidence of implementation — not proof of end-to-end correctness, and not a legal determination; confidence levels and rationales say so.
+- Evidence snippets from uploaded files are HTML-escaped before rendering (`escapeHtml` in render.js) — real source code is untrusted display content, unlike this prototype's own static strings.
+
 ## [0.5.1] — Manual competitor entry, auto-collapse passing items
 
 ### Added

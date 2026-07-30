@@ -6,10 +6,11 @@ A prototype for a web app that scans a website and rates its privacy and regulat
 
 ## What it does
 
-The app is built around one core insight: most of what GDPR/CCPA actually require — access, deletion, portability, consent management — happens **inside a logged-in product experience**, which an external crawler can never see. So compliance checking is split into two tracks that roll up into **one combined score per regulation**:
+The app is built around one core insight: most of what GDPR/CCPA actually require — access, deletion, portability, consent management — happens **inside a logged-in product experience**, which an external crawler can never see. So compliance checking is split into tracks that roll up into **one combined score per regulation**:
 
 - **Scanned (logged-out)** — a simulated full-site crawl against whatever's publicly observable: privacy policy, cookie banner, terms, public disclosures.
 - **Self-attested (logged-in)** — a checklist, prepopulated per regulation, for the things only visible behind auth (self-serve access/delete/export/correct, consent preference centers). You check what you have, describe how it works, optionally attach a screenshot, and the app reviews the submission — asking a targeted follow-up question and showing a rough sketch of what "compliant" typically looks like if your first answer isn't detailed enough to judge confidently.
+- **Source audit (upload a codebase)** — instead of entering a URL, upload a repo folder you're authorized to audit. The app reads the files **locally in your browser** (nothing is uploaded anywhere) and pattern-matches them against every requirement, producing real evidence citations (file, line, snippet). Checklist items with solid evidence are auto-attested from source; items with no evidence still go through the normal self-attestation flow, so the grade gate stays honest. **This track is real analysis, not simulated** — the only such piece in the prototype (see the table below), though it's pattern-based evidence, not a legal determination.
 
 Other features:
 - **Regulation picker** — multi-select GDPR and CCPA/CPRA (MVP scope; architecture leaves room for more).
@@ -31,6 +32,7 @@ This is a front-end prototype meant to demonstrate the product concept and inter
 |---|---|
 | UI/UX, navigation, scoring logic, scan flow | Fully functional |
 | Website crawling / tracker detection | Simulated (deterministic per-domain mock data) |
+| **Source audit of an uploaded codebase** | **Real** — pattern-matching against the actual files you upload, entirely in-browser, with real file/line evidence citations. Heuristic, not a legal determination: it finds evidence of implementation, not proof of end-to-end correctness. |
 | GDPR / CCPA requirement text | Real regulatory citations and requirements |
 | Self-attested checklist review (status, confidence, follow-up questions) | Simulated — rule-based keyword matching, not a live model call (see `SPEC.md` Phase 1) |
 | Legislation database | Static seed data, illustrative |
@@ -40,7 +42,7 @@ This is a front-end prototype meant to demonstrate the product concept and inter
 
 ## Tech
 
-HTML shell + CSS in `regulatory-ledger.html`, loading five plain-script `js/*.js` files (data, scoring, reviewer, render, app) — vanilla JS, no framework, no build step. Fonts: Fraunces (display), IBM Plex Sans (body), IBM Plex Mono (data/citations), loaded from Google Fonts CDN.
+HTML shell + CSS in `regulatory-ledger.html`, loading six plain-script `js/*.js` files (data, scoring, reviewer, codeaudit, render, app) — vanilla JS, no framework, no build step. Fonts: Fraunces (display), IBM Plex Sans (body), IBM Plex Mono (data/citations), loaded from Google Fonts CDN.
 
 ## Roadmap
 
