@@ -2,7 +2,7 @@
 
 A prototype for a web app that scans a website and rates its privacy and regulatory compliance, adjustable by country/regulation, and surfaces both current and upcoming legislation relevant to the site.
 
-**[Open the prototype](./regulatory-ledger.html)** — single self-contained HTML file, no build step. Open it directly in a browser.
+**[Open the prototype](./regulatory-ledger.html)** — HTML shell + CSS, loading `js/*.js` via plain `<script>` tags, no build step. Open it directly in a browser.
 
 ## What it does
 
@@ -14,9 +14,11 @@ The app is built around one core insight: most of what GDPR/CCPA actually requir
 Other features:
 - **Regulation picker** — multi-select GDPR and CCPA/CPRA (MVP scope; architecture leaves room for more).
 - **Staleness tracking** — self-attested items flag "Needs re-attestation" after 90 days.
-- **Upcoming legislation tab** — filterable by region/status, showing pending and recently enacted bills relevant to the site.
-- **Risk & precedent tab** — top risks ranked by severity, matched against sample enforcement cases (fines, regulator, year), pulling from both tracks.
+- **Upcoming legislation tab** — filterable by region/status, defaults to what's relevant to the open site's countries.
+- **Risk & precedent, inline** — every failing/partial item on the Compliance Results tab shows its own comparable real enforcement action (company, fine, regulator, year), plus a combined potential-exposure range near the overall grade.
 - **Privacy trust tab** — a separate score covering data minimization, consent clarity, user rights support, third-party transparency, and retention specificity — independent of legal compliance.
+- **vs. Competitors tab** — a basic score comparison against other companies (illustrative — see the table below).
+- **Settings dropdown** (top right) — adjust how much each severity tier counts toward the blended score.
 - **Docket sidebar** — saved sites with scan history; re-scans are triggered manually, never automatically.
 
 See [`SPEC.md`](./SPEC.md) for the full spec and [`CHANGELOG.md`](./CHANGELOG.md) for version history.
@@ -32,12 +34,13 @@ This is a front-end prototype meant to demonstrate the product concept and inter
 | GDPR / CCPA requirement text | Real regulatory citations and requirements |
 | Self-attested checklist review (status, confidence, follow-up questions) | Simulated — rule-based keyword matching, not a live model call (see `SPEC.md` Phase 1) |
 | Legislation database | Static seed data, illustrative |
-| Enforcement fines / precedent cases | Composite/illustrative examples — not real, verified enforcement records |
+| Enforcement fines / precedent cases | **Real, publicly reported enforcement actions** (named company, regulator, year, amount), cited for comparison to the type of violation — not a claim that any scanned site committed them or is connected to those companies. As originally announced; some remain under appeal. |
+| vs. Competitors scores | Simulated — no real crawl of competitor sites exists yet, even when a real company name is shown |
 | Accounts / auth | Simulated with local browser state, resets on reload |
 
 ## Tech
 
-Single HTML file — vanilla JS, no framework, no build step. Fonts: Fraunces (display), IBM Plex Sans (body), IBM Plex Mono (data/citations), loaded from Google Fonts CDN.
+HTML shell + CSS in `regulatory-ledger.html`, loading five plain-script `js/*.js` files (data, scoring, reviewer, render, app) — vanilla JS, no framework, no build step. Fonts: Fraunces (display), IBM Plex Sans (body), IBM Plex Mono (data/citations), loaded from Google Fonts CDN.
 
 ## Roadmap
 

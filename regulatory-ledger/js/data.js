@@ -235,13 +235,21 @@ const CCPA_CHECKLIST = [
     neg:['just a link','static page','informational only','no setting']},
 ];
 
+/* Real, publicly reported enforcement actions — cited for comparison to the
+   TYPE of violation a given requirement covers, not as any claim that a
+   scanned site is connected to these companies or committed these specific
+   violations. Amounts/outcomes as originally announced by the regulator;
+   some remain under appeal. Sourced from each regulator's published decision
+   — see README.md for why this replaced the earlier composite placeholders. */
 const FINES = {
-  'gdpr-s2': {who:'Mid-size adtech network (composite case)', violation:'Trackers fired before consent was captured', fine:'€8.4M', regulator:'EU Data Protection Authority', year:2023},
-  'gdpr-a2': {who:'SaaS analytics platform (composite case)', violation:'No functioning erasure / deletion mechanism', fine:'€2.1M', regulator:'EU Data Protection Authority', year:2022},
-  'gdpr-s5': {who:'Financial services site (composite case)', violation:'Cross-border transfers without documented safeguards', fine:'€12.0M', regulator:'EU Data Protection Authority', year:2023},
-  'ccpa-s1': {who:'Regional retail chain (composite case)', violation:'No functioning "Do Not Sell" link', fine:'$1.2M', regulator:'California Attorney General', year:2023},
-  'ccpa-s2': {who:'Media publisher (composite case)', violation:'Missing notice at collection', fine:'$0.9M', regulator:'California Attorney General', year:2022},
-  'ccpa-a4': {who:'Consumer app (composite case)', violation:'Undisclosed sharing of sensitive personal information', fine:'$3.7M', regulator:'California Attorney General', year:2024},
+  'gdpr-s1': {who:'Clearview AI', violation:'Collected and processed facial-recognition data with no valid legal basis', fine:'€20M', amount:20000000, currency:'EUR', regulator:'French data protection authority (CNIL)', year:2022},
+  'gdpr-s2': {who:'Amazon Europe Core', violation:'Advertising/tracking practices processed data without a valid consent basis', fine:'€746M', amount:746000000, currency:'EUR', regulator:'Luxembourg data protection authority (CNPD)', year:2021},
+  'gdpr-s3': {who:'Google LLC', violation:'Insufficient transparency and invalid consent for ad personalization', fine:'€50M', amount:50000000, currency:'EUR', regulator:'French data protection authority (CNIL)', year:2019},
+  'gdpr-s5': {who:'Meta Platforms Ireland', violation:'Transferred EU user data to the US without adequate safeguards', fine:'€1.2B', amount:1200000000, currency:'EUR', regulator:'Irish Data Protection Commission', year:2023},
+  'gdpr-s7': {who:'British Airways', violation:'Security failures enabled a breach exposing customer payment data', fine:'£20M', amount:20000000, currency:'GBP', regulator:'UK Information Commissioner’s Office', year:2020},
+  'ccpa-s1': {who:'Sephora, Inc.', violation:'Failed to process "Do Not Sell" opt-outs, including via Global Privacy Control', fine:'$1.2M', amount:1200000, currency:'USD', regulator:'California Attorney General', year:2022},
+  'ccpa-s2': {who:'DoorDash, Inc.', violation:'Sold personal information via a marketing co-op without required notice', fine:'$375K', amount:375000, currency:'USD', regulator:'California Attorney General', year:2024},
+  'ccpa-a2': {who:'American Honda Motor Co.', violation:'Imposed excessive verification burdens on consumers exercising deletion rights', fine:'$632.5K', amount:632500, currency:'USD', regulator:'California Attorney General', year:2023},
 };
 
 const BILLS = [

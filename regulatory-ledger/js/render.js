@@ -9,7 +9,13 @@ function render(){
     <div class="shell">
       <div class="masthead">
         <div class="wordmark disp">The Regulatory Ledger<small>Compliance &amp; privacy audit workbench — prototype</small></div>
-        <div class="dateline mono">DOCKET OPEN<br>${new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</div>
+        <div class="masthead-right">
+          <div class="dateline mono">DOCKET OPEN<br>${new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</div>
+          <div class="settings-dropdown-wrap">
+            <button class="settings-gear-btn" id="btn-settings-toggle">⚙ Settings ${state.settingsMenuOpen?'▴':'▾'}</button>
+            ${state.settingsMenuOpen ? `<div class="settings-dropdown-panel">${renderSettingsDropdown()}</div>` : ''}
+          </div>
+        </div>
       </div>
       <div class="docket">
         <div class="docket-head">
@@ -39,15 +45,18 @@ function renderDocketList(){
   }
   [...state.sites].reverse().forEach(s=>{
     const scan = s.scans[s.scans.length-1];
-    const g = blendedScore(s, scan, 'GDPR');
-    const c = blendedScore(s, scan, 'CCPA');
     const label = countryLabelFor(s);
+    const chip = regKey=>{
+      const resolved = allSelfAttestedResolved(s, regKey);
+      const score = blendedScore(s, scan, regKey);
+      return `<span class="chip-mini ${resolved?chipClass(score):'pending'}">${regKey} ${resolved?gradeLabel(score):'PENDING'}</span>`;
+    };
     html += `<button class="docket-entry ${s.id===state.selectedSiteId?'active':''}" data-site-id="${s.id}">
       <div class="docket-num mono">NO. ${pad3(s.docketNum)}</div>
       <div class="docket-domain">${s.domain}${label?`<span class="variant-tag">${label}</span>`:''}</div>
       <div class="docket-chips">
-        <span class="chip-mini ${chipClass(g)}">GDPR ${gradeLabel(g)}</span>
-        <span class="chip-mini ${chipClass(c)}">CCPA ${gradeLabel(c)}</span>
+        ${chip('GDPR')}
+        ${chip('CCPA')}
       </div>
     </button>`;
   });
@@ -71,10 +80,8 @@ function renderMain(site){
   if(state.activeTab==='compliance') body = renderComplianceTab(site, scan);
   else if(state.activeTab==='recommendations') body = renderRecommendationsTab(site, scan);
   else if(state.activeTab==='legislation') body = renderLegislationTab(site);
-  else if(state.activeTab==='risk') body = renderRiskTab(site, scan);
   else if(state.activeTab==='trust') body = renderTrustTab(scan);
   else if(state.activeTab==='competitors') body = renderCompetitorsTab(site, scan);
-  else if(state.activeTab==='settings') body = renderSettingsTab();
 
   const label = countryLabelFor(site);
 
@@ -107,10 +114,8 @@ function renderMain(site){
       <button class="tab-btn ${state.activeTab==='compliance'?'active':''}" data-tab="compliance">COMPLIANCE RESULTS</button>
       <button class="tab-btn ${state.activeTab==='recommendations'?'active':''}" data-tab="recommendations">RECOMMENDATIONS</button>
       <button class="tab-btn ${state.activeTab==='legislation'?'active':''}" data-tab="legislation">UPCOMING LEGISLATION</button>
-      <button class="tab-btn ${state.activeTab==='risk'?'active':''}" data-tab="risk">RISK &amp; PRECEDENT</button>
       <button class="tab-btn ${state.activeTab==='trust'?'active':''}" data-tab="trust">PRIVACY TRUST</button>
       <button class="tab-btn ${state.activeTab==='competitors'?'active':''}" data-tab="competitors">VS. COMPETITORS</button>
-      <button class="tab-btn ${state.activeTab==='settings'?'active':''}" data-tab="settings">SETTINGS</button>
     </div>
     ${body}
     <div class="foot-space"></div>
@@ -243,13 +248,14 @@ function renderComplianceTab(site, scan){
   const stampsHtml = regs.map(regKey=>{
     const {label} = regDefs(regKey);
     const score = blendedScore(site, scan, regKey);
-    const grade = gradeLabel(score);
+    const resolved = allSelfAttestedResolved(site, regKey);
+    const grade = resolved ? gradeLabel(score) : null;
     return `
       <div class="stamp-wrap">
-        <div class="stamp ${tierClass(grade)}"><div class="grade disp">${grade}</div><div class="glabel">${regKey}</div></div>
+        <div class="stamp ${resolved?tierClass(grade):'tier-pending'}"><div class="grade disp">${resolved?grade:'—'}</div><div class="glabel">${regKey}</div></div>
         <div>
-          <div class="stamp-num mono">${score}/100</div>
-          <div class="stamp-caption">${topGapsCaption(site, scan, regKey)}</div>
+          <div class="stamp-num mono">${score}/100${resolved?'':' (provisional)'}</div>
+          <div class="stamp-caption">${resolved ? topGapsCaption(site, scan, regKey) : 'Final grade withheld until every self-attested item below is completed or overridden.'}</div>
         </div>
       </div>
     `;
@@ -265,8 +271,8 @@ function renderComplianceTab(site, scan){
       const stClass = eff.toLowerCase();
       const collapsed = !!state.collapsedItems[req.id];
       let note = '';
-      if(eff==='Fail') note = `<div class="req-note fail">${req.hints.fail}${evidenceHover(req, eff)}</div>`;
-      else if(eff==='Partial') note = `<div class="req-note partial">${req.hints.partial}${evidenceHover(req, eff)}</div>`;
+      if(eff==='Fail') note = `<div class="req-note fail">${req.hints.fail}${evidenceHover(req, eff)}</div>${renderPrecedentInline(req)}`;
+      else if(eff==='Partial') note = `<div class="req-note partial">${req.hints.partial}${evidenceHover(req, eff)}</div>${renderPrecedentInline(req)}`;
       return `
         <div class="ledger-row">
           <div>
@@ -283,6 +289,7 @@ function renderComplianceTab(site, scan){
     }).join('');
 
     const checklistRows = checklist.map(item=>renderChecklistItem(site, scan, regKey, item)).join('');
+    const resolved = allSelfAttestedResolved(site, regKey);
 
     return `
       <div class="reg-block">
@@ -291,13 +298,42 @@ function renderComplianceTab(site, scan){
           <button type="button" class="link-btn" style="margin-left:12px;" data-collapse-all="${allIds}">Collapse all</button>
           <button type="button" class="link-btn" style="margin-left:8px;" data-expand-all="${allIds}">Expand all</button>
         </div>
+        <div class="ledger-section-label">Scanned — automated, no action needed from you</div>
         <div class="ledger">${scannedRows}</div>
+        <div class="ledger-section-label">Self-attested — ${resolved ? 'complete' : 'required before a final grade is given'}</div>
         <div class="ledger">${checklistRows}</div>
       </div>
     `;
   }).join('');
 
-  return `<div class="stamp-row">${stampsHtml}</div>${renderCountryBreakdown(site, scan)}${blocksHtml}`;
+  return `<div class="stamp-row">${stampsHtml}</div>${renderExposureSummary(site, scan)}${renderCountryBreakdown(site, scan)}${blocksHtml}`;
+}
+
+function renderExposureSummary(site, scan){
+  const exp = exposureSummary(site, scan);
+  if(!exp) return '';
+  const rangesHtml = exp.ranges.map(r=>
+    `${r.symbol}${formatMoney(r.min)}${r.min!==r.max?'–'+r.symbol+formatMoney(r.max):''}`
+  ).join(' · ');
+  return `
+    <div class="exposure-summary">
+      <div class="exposure-label">Potential exposure — based on ${exp.caseCount} comparable public enforcement action${exp.caseCount===1?'':'s'} matching your current gaps</div>
+      <div class="exposure-range mono">${rangesHtml}</div>
+      <div class="exposure-note">Real, publicly reported enforcement cases cited for comparison — not a claim that this site committed these violations or has any connection to these companies.</div>
+    </div>
+  `;
+}
+
+function renderPrecedentInline(item){
+  const fine = FINES[item.id];
+  if(!fine) return `<div class="precedent"><span class="none">No directly comparable public enforcement case in this prototype’s dataset.</span></div>`;
+  return `
+    <div class="precedent">
+      <div class="pre-label">Comparable enforcement action</div>
+      <div><b>${fine.who}</b> — ${fine.violation}.</div>
+      <div style="margin-top:4px;">Fine: <span class="fine">${fine.fine}</span> · ${fine.regulator} · ${fine.year}</div>
+    </div>
+  `;
 }
 
 function renderOverrideControl(site, itemId, rawCurrentStatus){
@@ -407,6 +443,7 @@ function renderChecklistItem(site, scan, regKey, item){
         ${statusBadge}
       </div>
       ${!collapsed ? bodyHtml : ''}
+      ${(!collapsed && (eff==='Fail'||eff==='Partial')) ? `<div style="margin-left:27px;">${renderPrecedentInline(item)}</div>` : ''}
       ${!collapsed ? `<div class="override-wrap" style="margin-left:27px;">${renderOverrideControl(site, item.id, raw)}</div>` : ''}
     </div>
   `;
@@ -486,47 +523,6 @@ function renderLegislationTab(site){
   `;
 }
 
-function renderRiskTab(site, scan){
-  const eff = effectiveRegs(site);
-  let combined = [];
-  if(eff.GDPR) combined = combined.concat(gapItems(site, scan, 'GDPR'));
-  if(eff.CCPA) combined = combined.concat(gapItems(site, scan, 'CCPA'));
-
-  const top = combined.slice(0,5);
-
-  if(top.length===0){
-    return `<p class="section-note">No material risks surfaced across the selected regulations — nice work. Re-scan and re-attest periodically as the site changes.</p>`;
-  }
-
-  const itemsHtml = top.map((c,i)=>{
-    const fine = FINES[c.item.id];
-    const remedyText = c.source==='scanned'
-      ? (c.status==='Fail' ? c.item.hints.fail : c.item.hints.partial)
-      : (c.status==='Fail' ? 'Not yet implemented, or not yet attested with enough detail to confirm.' : 'Self-attested but not fully confirmed — see the Compliance Results tab for details.');
-    const precedentHtml = fine ? `
-      <div class="precedent">
-        <div class="pre-label">Comparable enforcement pattern</div>
-        <div>${fine.who} — ${fine.violation}.</div>
-        <div style="margin-top:4px;">Fine: <span class="fine">${fine.fine}</span> · ${fine.regulator} · ${fine.year}</div>
-      </div>
-    ` : `<div class="precedent"><span class="none">No directly comparable sample case in this prototype’s dataset.</span></div>`;
-
-    return `
-      <div class="risk-item">
-        <div class="risk-rank disp">${i+1}</div>
-        <div>
-          <div class="risk-title">[${c.regKey} · ${c.source==='scanned'?'Scanned':'Self-attested'}] ${c.item.text}</div>
-          <div class="risk-sev">${SEV_LABEL[c.item.sev]} · Currently: ${c.status}</div>
-          <div class="risk-remedy">${remedyText}</div>
-          ${precedentHtml}
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  return `${itemsHtml}<div class="risk-disclaimer">Enforcement examples above are composite / illustrative, built for this prototype — they are not verified real-world fines and should not be treated as predictive of any actual outcome.</div>`;
-}
-
 function renderTrustTab(scan){
   const grade = gradeLabel(scan.trust.score);
   const catsHtml = TRUST_CATS.map(c=>{
@@ -584,7 +580,7 @@ function renderCompetitorsTab(site, scan){
   `;
 }
 
-function renderSettingsTab(){
+function renderSettingsDropdown(){
   const rows = ['high','med','low'].map(sev=>`
     <div class="settings-weight-row">
       <div class="settings-weight-label">${SEV_LABEL[sev]}</div>
@@ -593,10 +589,10 @@ function renderSettingsTab(){
     </div>
   `).join('');
   return `
-    <p class="rec-intro">Adjust how much each severity tier counts toward the blended score — turn a tier up if that category of infraction concerns you more (e.g. weight "high" severity items more heavily if consent violations are your top risk). Changes apply immediately, across every open site.</p>
+    <div class="settings-dropdown-title">Severity weighting</div>
+    <p class="settings-dropdown-note">Turn a tier up if that category of infraction concerns you more. Applies immediately, across every open site.</p>
     ${rows}
-    <button class="submit-btn" id="btn-reset-weights" style="margin-top:8px;">Reset to defaults</button>
-    <p class="section-note" style="margin-top:20px;">Severity tier (high/med/low) is the only weighting axis in this prototype. Weighting by requirement *category* instead (e.g. consent vs. rights vs. transparency) would need every requirement tagged with a category first — not yet modeled here.</p>
+    <button class="submit-btn" id="btn-reset-weights">Reset to defaults</button>
   `;
 }
 
@@ -612,7 +608,10 @@ function buildPrintReportHTML(site, scan){
 
   regs.forEach(regKey=>{
     const score = blendedScore(site, scan, regKey);
-    html += `<h2>${regKey} — ${score}/100 (${gradeLabel(score)})</h2>`;
+    const resolved = allSelfAttestedResolved(site, regKey);
+    html += resolved
+      ? `<h2>${regKey} — ${score}/100 (${gradeLabel(score)})</h2>`
+      : `<h2>${regKey} — ${score}/100 (provisional — final grade pending self-attestation)</h2>`;
     const gaps = gapItems(site, scan, regKey);
     if(gaps.length===0){
       html += `<div class="pr-item">No material gaps found.</div>`;
@@ -628,7 +627,7 @@ function buildPrintReportHTML(site, scan){
   regs.forEach(regKey=>{ combinedGaps = combinedGaps.concat(gapItems(site, scan, regKey)); });
   combinedGaps.slice(0,3).forEach(c=>{
     const fine = FINES[c.item.id];
-    html += `<div class="pr-item">${c.item.text} — ${SEV_LABEL[c.item.sev]}${fine ? `<br><span class="pr-meta">Comparable pattern: ${fine.who}, ${fine.fine} (${fine.regulator}, ${fine.year}) — illustrative only</span>` : ''}</div>`;
+    html += `<div class="pr-item">${c.item.text} — ${SEV_LABEL[c.item.sev]}${fine ? `<br><span class="pr-meta">Comparable enforcement action: ${fine.who}, ${fine.fine} (${fine.regulator}, ${fine.year}) — real public case cited for comparison, not a claim about this site</span>` : ''}</div>`;
   });
 
   html += `<h2>Privacy Trust — ${scan.trust.score}/100 (${gradeLabel(scan.trust.score)})</h2>`;
@@ -636,6 +635,6 @@ function buildPrintReportHTML(site, scan){
     html += `<div class="pr-item">${c.name}: ${scan.trust.scores[c.id]}/100</div>`;
   });
 
-  html += `<p class="pr-meta" style="margin-top:24px;">This report provides informational guidance only, not legal advice. Enforcement figures are composite/illustrative. Generated by a prototype — self-attested items and their AI-style review are simulated.</p>`;
+  html += `<p class="pr-meta" style="margin-top:24px;">This report provides informational guidance only, not legal advice. Enforcement figures cite real, publicly reported cases for comparison only — not a finding about this site. Generated by a prototype — self-attested items and their AI-style review are simulated.</p>`;
   return html;
 }
