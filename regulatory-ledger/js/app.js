@@ -8,31 +8,32 @@ const state = {
   scanning: false,
   scanStepIndex: 0,
   scanTargetDomain: '',
-  scanVariant: 'Global',
+  scanningExistingSiteId: null,
   showNewScanForm: false,
+  newScanCountries: [],        // country codes checked in the New Scan form
+  newScanManualCountries: [],  // [{name}] added via free-text in the New Scan form
+  newScanManualInput: '',      // draft text for the manual-add box
+  newScanError: false,
   legFilterRegion: 'All',
   legFilterStatus: 'All',
+  legFilterSiteOnly: true,      // default the Legislation tab to this site's countries
   nextDocketNum: 1,
   drafts: {},
   overrideDrafts: {},
   overrideOpen: {},
   countryPanelOpen: false,
   overrideHistory: {},
+  collapsedItems: {},
+  manualCountryInput: {},       // per-site draft text for the post-scan "add a country" box
+  sevWeights: {...DEFAULT_SEV_WEIGHT},
 };
 
 const SCAN_STEPS = [
-  'Crawling site structure (logged-out pages only)\u2026',
-  'Reading privacy policy & terms\u2026',
-  'Inventorying cookies & trackers\u2026',
-  'Comparing against selected regulations\u2026',
-  'Compiling risk & trust assessment\u2026',
-];
-
-const VARIANTS = [
-  {key:'Global', label:'Global / default'},
-  {key:'US', label:'United States'},
-  {key:'EU', label:'European Union'},
-  {key:'CH', label:'Switzerland'},
+  'Crawling site structure (logged-out pages only)…',
+  'Reading privacy policy & terms…',
+  'Inventorying cookies & trackers…',
+  'Comparing against selected regulations…',
+  'Compiling risk & trust assessment…',
 ];
 
 function cleanDomain(input){
@@ -48,22 +49,26 @@ function getDraft(siteId, itemId){
   if(!state.drafts[k]) state.drafts[k] = {description:'', screenshot:null, followUpAnswer:''};
   return state.drafts[k];
 }
-function defaultCountriesFor(variant){
-  if(variant==='EU') return ['DE'];
-  if(variant==='US') return ['US-CA'];
-  if(variant==='CH') return ['CH'];
-  return [];
-}
-function defaultManualRegsFor(variant){
-  if(variant==='EU') return {GDPR:true, CCPA:false};
-  if(variant==='US') return {GDPR:false, CCPA:true};
-  if(variant==='CH') return {GDPR:true, CCPA:false};
-  return {GDPR:true, CCPA:true};
-}
 function effectiveRegs(site){
   const gdpr = site.manualRegs.GDPR || site.selectedCountries.some(c => (COUNTRIES.find(x=>x.code===c)||{}).regs && COUNTRIES.find(x=>x.code===c).regs.includes('GDPR'));
   const ccpa = site.manualRegs.CCPA || site.selectedCountries.some(c => (COUNTRIES.find(x=>x.code===c)||{}).regs && COUNTRIES.find(x=>x.code===c).regs.includes('CCPA'));
   return {GDPR: gdpr, CCPA: ccpa};
+}
+function countryLabelFor(site){
+  const known = (site.selectedCountries||[]).map(code=>COUNTRIES.find(c=>c.code===code)).filter(Boolean).map(c=>c.name);
+  const manual = (site.manualCountries||[]).map(m=>m.name);
+  const all = [...known, ...manual];
+  if(all.length===0) return '';
+  if(all.length===1) return all[0];
+  return `${all[0]} +${all.length-1} more`;
+}
+function countryLabelForDraft(){
+  const known = state.newScanCountries.map(code=>COUNTRIES.find(c=>c.code===code)).filter(Boolean).map(c=>c.name);
+  const manual = state.newScanManualCountries.map(m=>m.name);
+  const all = [...known, ...manual];
+  if(all.length===0) return '';
+  if(all.length===1) return all[0];
+  return `${all[0]} +${all.length-1} more`;
 }
 
 /* ============================================================
@@ -73,22 +78,57 @@ function attachHandlers(site){
   const addBtn = document.getElementById('btn-add-site');
   if(addBtn) addBtn.addEventListener('click', ()=>{
     state.showNewScanForm = true;
-    state.scanVariant = 'Global';
+    state.newScanCountries = [];
+    state.newScanManualCountries = [];
+    state.newScanManualInput = '';
+    state.newScanError = false;
     render();
   });
 
   const cancelBtn = document.getElementById('btn-cancel-new');
   if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ state.showNewScanForm = false; render(); });
 
-  document.querySelectorAll('[data-variant]').forEach(el=>{
-    el.addEventListener('click', ()=>{ state.scanVariant = el.getAttribute('data-variant'); render(); });
+  document.querySelectorAll('[data-newscan-country]').forEach(el=>{
+    el.addEventListener('change', (e)=>{
+      const code = el.getAttribute('data-newscan-country');
+      if(e.target.checked){
+        if(!state.newScanCountries.includes(code)) state.newScanCountries.push(code);
+      } else {
+        state.newScanCountries = state.newScanCountries.filter(c=>c!==code);
+      }
+      state.newScanError = false;
+      render();
+    });
+  });
+  const newScanManualInput = document.getElementById('new-scan-manual-input');
+  if(newScanManualInput) newScanManualInput.addEventListener('input', (e)=>{ state.newScanManualInput = e.target.value; });
+  const newScanManualAdd = document.getElementById('btn-new-scan-manual-add');
+  if(newScanManualAdd) newScanManualAdd.addEventListener('click', (e)=>{
+    e.preventDefault();
+    const name = (state.newScanManualInput||'').trim();
+    if(!name) return;
+    state.newScanManualCountries.push({name});
+    state.newScanManualInput = '';
+    state.newScanError = false;
+    render();
+  });
+  document.querySelectorAll('[data-newscan-remove-manual]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      state.newScanManualCountries.splice(Number(el.getAttribute('data-newscan-remove-manual')), 1);
+      render();
+    });
   });
 
   const newForm = document.getElementById('new-scan-form');
   if(newForm) newForm.addEventListener('submit', (e)=>{
     e.preventDefault();
     const val = document.getElementById('new-scan-input').value;
-    if(val && val.trim()) startScan(cleanDomain(val), state.scanVariant);
+    if(state.newScanCountries.length===0 && state.newScanManualCountries.length===0){
+      state.newScanError = true;
+      render();
+      return;
+    }
+    if(val && val.trim()) startScan(cleanDomain(val));
   });
 
   document.querySelectorAll('[data-site-id]').forEach(el=>{
@@ -101,7 +141,7 @@ function attachHandlers(site){
   });
 
   const rescanBtn = document.getElementById('btn-rescan');
-  if(rescanBtn) rescanBtn.addEventListener('click', ()=>{ if(site) startScan(site.domain, site.variant, site); });
+  if(rescanBtn) rescanBtn.addEventListener('click', ()=>{ if(site) startScan(site.domain, site); });
 
   const exportBtn = document.getElementById('btn-export');
   if(exportBtn) exportBtn.addEventListener('click', ()=>{
@@ -143,6 +183,28 @@ function attachHandlers(site){
       render();
     });
   });
+  const panelManualInput = document.getElementById('country-panel-manual-input');
+  if(panelManualInput) panelManualInput.addEventListener('input', (e)=>{
+    if(!site) return;
+    state.manualCountryInput[site.id] = e.target.value;
+  });
+  const panelManualAdd = document.getElementById('btn-country-panel-manual-add');
+  if(panelManualAdd) panelManualAdd.addEventListener('click', ()=>{
+    if(!site) return;
+    const name = (state.manualCountryInput[site.id]||'').trim();
+    if(!name) return;
+    site.manualCountries = site.manualCountries || [];
+    site.manualCountries.push({name});
+    state.manualCountryInput[site.id] = '';
+    render();
+  });
+  document.querySelectorAll('[data-remove-manual-country]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      if(!site) return;
+      site.manualCountries.splice(Number(el.getAttribute('data-remove-manual-country')), 1);
+      render();
+    });
+  });
 
   document.querySelectorAll('.tab-btn').forEach(el=>{
     el.addEventListener('click', ()=>{ state.activeTab = el.getAttribute('data-tab'); render(); });
@@ -152,6 +214,42 @@ function attachHandlers(site){
   if(regionFilter) regionFilter.addEventListener('change', (e)=>{ state.legFilterRegion = e.target.value; render(); });
   const statusFilter = document.getElementById('leg-status-filter');
   if(statusFilter) statusFilter.addEventListener('change', (e)=>{ state.legFilterStatus = e.target.value; render(); });
+  const siteOnlyToggle = document.getElementById('leg-site-only-toggle');
+  if(siteOnlyToggle) siteOnlyToggle.addEventListener('change', (e)=>{ state.legFilterSiteOnly = e.target.checked; render(); });
+
+  document.querySelectorAll('[data-weight-for]').forEach(el=>{
+    el.addEventListener('input', (e)=>{
+      const sev = el.getAttribute('data-weight-for');
+      const v = Number(e.target.value);
+      if(!isNaN(v)) state.sevWeights[sev] = v;
+      render();
+    });
+  });
+  const resetWeightsBtn = document.getElementById('btn-reset-weights');
+  if(resetWeightsBtn) resetWeightsBtn.addEventListener('click', ()=>{
+    state.sevWeights = {...DEFAULT_SEV_WEIGHT};
+    render();
+  });
+
+  document.querySelectorAll('[data-collapse-toggle]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const id = el.getAttribute('data-collapse-toggle');
+      state.collapsedItems[id] = !state.collapsedItems[id];
+      render();
+    });
+  });
+  document.querySelectorAll('[data-collapse-all]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      el.getAttribute('data-collapse-all').split(',').forEach(id=>{ state.collapsedItems[id] = true; });
+      render();
+    });
+  });
+  document.querySelectorAll('[data-expand-all]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      el.getAttribute('data-expand-all').split(',').forEach(id=>{ state.collapsedItems[id] = false; });
+      render();
+    });
+  });
 
   if(!site) return;
 
@@ -276,10 +374,10 @@ function attachHandlers(site){
   });
 }
 
-function startScan(domain, variant, existingSite){
+function startScan(domain, existingSite){
   state.scanning = true;
+  state.scanningExistingSiteId = existingSite ? existingSite.id : null;
   state.scanTargetDomain = domain;
-  state.scanVariant = variant || 'Global';
   state.scanStepIndex = 0;
   state.showNewScanForm = false;
   render();
@@ -288,16 +386,19 @@ function startScan(domain, variant, existingSite){
     state.scanStepIndex++;
     if(state.scanStepIndex >= SCAN_STEPS.length){
       clearInterval(stepInterval);
-      finishScan(domain, state.scanVariant, existingSite);
+      finishScan(domain, existingSite);
       return;
     }
     render();
   }, 480);
 }
 
-function finishScan(domain, variant, existingSite){
+function finishScan(domain, existingSite){
   const salt = String(Date.now());
-  const scan = runScan(domain, variant, salt);
+  const countryCodes = existingSite ? existingSite.selectedCountries : state.newScanCountries;
+  const manualCountries = existingSite ? existingSite.manualCountries : state.newScanManualCountries;
+  const posture = simPostureFor(countryCodes, manualCountries);
+  const scan = runScan(domain, posture, salt);
 
   if(existingSite){
     existingSite.scans.push(scan);
@@ -307,10 +408,10 @@ function finishScan(domain, variant, existingSite){
     const docketNum = state.nextDocketNum++;
     state.sites.push({
       id, domain, docketNum,
-      variant: variant || 'Global',
       addedAt: Date.now(),
-      manualRegs: defaultManualRegsFor(variant),
-      selectedCountries: defaultCountriesFor(variant),
+      manualRegs: defaultManualRegsFromCountries(countryCodes),
+      selectedCountries: [...countryCodes],
+      manualCountries: manualCountries.map(m=>({...m})),
       scans: [scan],
       checklistState: {},
       overrides: {},
@@ -318,6 +419,7 @@ function finishScan(domain, variant, existingSite){
     state.selectedSiteId = id;
   }
   state.scanning = false;
+  state.scanningExistingSiteId = null;
   state.activeTab = 'compliance';
   render();
 }
