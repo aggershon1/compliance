@@ -33,6 +33,18 @@ For each item:
 
 Self-attested answers go stale — the feature described might get changed or removed months later with no automatic way for the platform to know. Every attested item carries a timestamp, and items older than **90 days** are flagged **"Needs re-attestation"** in the UI. A stale item keeps contributing its last-known status to the score (so the number doesn't swing wildly on a timer), but it's visibly flagged so nobody mistakes a stale attestation for a fresh one.
 
+## Track 3 — Source audit (upload a codebase) *(added v0.6.0)*
+
+For teams that own the product being reviewed (e.g. a PM responsible for compliance at their own company), there's a third entry path: instead of a URL, upload the product's repo folder. The app reads the files **locally in the browser** — nothing is transmitted anywhere — and pattern-matches them against every requirement in both tracks, citing real evidence (file, line, snippet) for each verdict.
+
+Rationale: the behind-login requirements a crawler can't see (Track 2's whole reason for existing) *are* visible in source code. A repo that contains a self-serve account-deletion flow is direct evidence for the erasure requirement — better evidence than a typed description. This shrinks the manual-attestation burden instead of replacing the model:
+
+1. Requirements with solid evidence in source are **auto-attested from source** (status + confidence + rationale + citations), overridable like everything else.
+2. Requirements with no evidence stay unattested and go through the normal Track 2 flow — the final-grade gate still applies, so silence in code never silently becomes credit.
+3. Requirements that don't live in code at all (breach runbooks, records of processing, policy copy that ships from a different repo) are marked **Pending** with an explanation, not failed — absence of evidence in one repo isn't evidence of absence.
+
+Honesty constraints: this is the **only real (non-simulated) analysis in the prototype** and is labeled as such; it's pattern-based evidence of implementation, not proof of end-to-end correctness, and not a legal determination. Users should only upload code they're authorized to audit. Source-audited entries have no Privacy Trust score (that measures the public-facing site) and no re-scan button (files aren't retained after analysis — re-upload to re-audit).
+
 ## Combined scoring
 
 Both tracks feed **one score per regulation** (not two separate scores). Every row — whether it came from the automated scan or from a self-attested checklist item — carries a small source tag (**Scanned** vs **Self-attested**) so it's always clear where a given result came from, even though they roll up into a single number. Unattested checklist items (unchecked, or checked but not yet submitted/reviewed) count as zero credit toward the score until they're resolved, the same way a Fail does — this keeps the score honest and avoids rewarding an empty checklist.

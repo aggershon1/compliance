@@ -53,7 +53,7 @@ function renderDocketList(){
     };
     html += `<button class="docket-entry ${s.id===state.selectedSiteId?'active':''}" data-site-id="${s.id}">
       <div class="docket-num mono">NO. ${pad3(s.docketNum)}</div>
-      <div class="docket-domain">${s.domain}${label?`<span class="variant-tag">${label}</span>`:''}</div>
+      <div class="docket-domain">${s.domain}${s.kind==='code'?`<span class="variant-tag">source audit</span>`:''}${label?`<span class="variant-tag">${label}</span>`:''}</div>
       <div class="docket-chips">
         ${chip('GDPR')}
         ${chip('CCPA')}
@@ -90,14 +90,16 @@ function renderMain(site){
       <div>
         <h1 class="disp">${site.domain}${label?`<span class="variant-tag">${label}</span>`:''}</h1>
         <div class="site-meta">
-          NO. ${pad3(site.docketNum)} · LAST SCANNED ${new Date(scan.timestamp).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}
+          NO. ${pad3(site.docketNum)} · ${site.kind==='code'
+            ? `SOURCE AUDIT · ${site.codeStats.analyzedFiles.toLocaleString()} FILES ANALYZED (${site.codeStats.skippedFiles.toLocaleString()} SKIPPED) · ${new Date(scan.timestamp).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`
+            : `LAST SCANNED ${new Date(scan.timestamp).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`}
           ${prevScan ? renderDelta(site, prevScan) : ''}
         </div>
       </div>
       <div class="header-actions">
         <button class="export-btn" id="btn-export">↓ Export PDF report</button>
         <button class="ff-btn" id="btn-fastforward" title="Demo only: ages all self-attested items by 100 days">⏩ Simulate 100 days (demo)</button>
-        <button class="rescan-btn" id="btn-rescan">Re-scan now</button>
+        ${site.kind==='code' ? '' : `<button class="rescan-btn" id="btn-rescan">Re-scan now</button>`}
       </div>
     </div>
 
@@ -161,17 +163,40 @@ function renderNewScanForm(canCancel){
   const manualChips = state.newScanManualCountries.map((m,i)=>
     `<span class="manual-country-chip">${m.name} <button type="button" class="chip-remove" data-newscan-remove-manual="${i}" aria-label="Remove ${m.name}">×</button></span>`
   ).join('');
+  const codeMode = state.newScanMode === 'code';
+
+  const entryHtml = codeMode ? `
+    <label>Codebase</label>
+    <div class="code-pick-row">
+      <label class="file-btn">📁 Choose repo folder
+        <input type="file" id="code-folder-input" webkitdirectory directory multiple style="display:none;">
+      </label>
+      ${state.pendingCodeFileCount ? `<span class="code-pick-count mono">${state.pendingCodeFileCount.toLocaleString()} files selected</span>` : `<span class="code-pick-count">No folder selected yet</span>`}
+      <button type="submit" class="go-btn" style="border-radius:var(--radius);">Run source audit</button>
+    </div>
+    <p class="code-privacy-note">Your files are read and analyzed entirely in this browser tab — nothing is uploaded or sent anywhere. Vendor and build directories (node_modules, dist, .git…) are skipped automatically.</p>
+  ` : `
+    <label>Website</label>
+    <div class="scan-form-row">
+      <input type="text" id="new-scan-input" placeholder="e.g. acmehealth.com" autocomplete="off">
+      <button type="submit" class="go-btn">Scan site</button>
+    </div>
+  `;
+
   return `
     <div class="empty-state">
       <h1 class="disp">${canCancel ? 'Start a new scan.' : 'Open a new case file.'}</h1>
-      <p>Enter a website to run a full-site crawl of its logged-out surface against GDPR and CCPA/CPRA, then fill out the self-attested checklist for what happens behind login. Select every country this scan should cover — it drives which regulations apply, the scoring breakdown, and which upcoming legislation is shown.</p>
+      <p>${codeMode
+        ? 'Upload a codebase you’re authorized to audit, and its source is analyzed for real evidence of each GDPR and CCPA/CPRA requirement — including the behind-login flows a website crawl can never see. Items with no evidence in source still go through the normal self-attestation flow.'
+        : 'Enter a website to run a full-site crawl of its logged-out surface against GDPR and CCPA/CPRA, then fill out the self-attested checklist for what happens behind login.'}
+        Select every country this review should cover — it drives which regulations apply, the scoring breakdown, and which upcoming legislation is shown.</p>
+      <div class="scan-mode-row">
+        <button type="button" class="reg-toggle ${!codeMode?'on':''}" data-scan-mode="url">Scan a website</button>
+        <button type="button" class="reg-toggle ${codeMode?'on':''}" data-scan-mode="code">Audit a codebase</button>
+      </div>
       <form class="scan-form" id="new-scan-form">
-        <label>Website</label>
-        <div class="scan-form-row">
-          <input type="text" id="new-scan-input" placeholder="e.g. acmehealth.com" autocomplete="off">
-          <button type="submit" class="go-btn">Scan site</button>
-        </div>
-        <label>Countries this scan covers</label>
+        ${entryHtml}
+        <label>Countries this ${codeMode?'audit':'scan'} covers</label>
         <div class="country-panel" style="margin-bottom:14px;">
           ${rows}
           <div class="country-footnote">* Switzerland is approximated to the GDPR baseline in this prototype — its own law (FADP) is distinct and has its own nuances.</div>
@@ -181,7 +206,7 @@ function renderNewScanForm(canCancel){
           <button type="button" id="btn-new-scan-manual-add" class="file-btn">+ Add</button>
         </div>
         ${manualChips ? `<div class="manual-country-chips">${manualChips}</div>` : ''}
-        ${state.newScanError ? `<div class="err">Select or add at least one country before scanning.</div>` : ''}
+        ${state.newScanError ? `<div class="err">${state.newScanError}</div>` : ''}
       </form>
       ${canCancel ? `<button class="cancel-link" id="btn-cancel-new">Cancel</button>` : ''}
     </div>
@@ -191,6 +216,20 @@ function renderNewScanForm(canCancel){
 function renderScanningView(){
   const existingSite = state.scanningExistingSiteId ? state.sites.find(s=>s.id===state.scanningExistingSiteId) : null;
   const label = existingSite ? countryLabelFor(existingSite) : countryLabelForDraft();
+  if(state.scanKind === 'code'){
+    const p = state.codeAuditProgress || {read:0, total:0};
+    const pct = p.total ? Math.round((p.read/p.total)*100) : 0;
+    return `
+      <div class="empty-state">
+        <h1 class="disp">Auditing ${state.scanTargetDomain}${label?` (${label})`:''}</h1>
+        <div class="scanning-box">
+          <div class="cursor mono" style="margin-bottom:10px;">Reading your source files locally — nothing leaves this browser tab.</div>
+          <div class="scanning-step current"><span class="mark">→</span>${p.total ? `Analyzed ${p.read.toLocaleString()} of ${p.total.toLocaleString()} files (${pct}%)` : 'Filtering vendor and build directories…'}</div>
+          <div class="bar-track" style="margin-top:10px;"><div class="bar-fill" style="width:${pct}%; background:var(--verdigris);"></div></div>
+        </div>
+      </div>
+    `;
+  }
   const stepsHtml = SCAN_STEPS.map((s,i)=>{
     let cls='scanning-step', mark='·';
     if(i<state.scanStepIndex){ cls+=' done'; mark='✓'; }
@@ -230,6 +269,26 @@ function evidenceHover(req, status){
     <div class="evidence-location">Found at: ${ev.location}</div>
     <div class="evidence-disclaimer">Illustrative for this prototype — a live crawler would cite the actual page and exact text found.</div>
   </span></span>`;
+}
+
+/* Real evidence hover for source-audited sites: the file/line/snippet hits
+   the audit engine actually found in the uploaded codebase. */
+function codeEvidenceHover(verdict){
+  if(!verdict || !verdict.evidence || verdict.evidence.length===0) return '';
+  const rowsHtml = verdict.evidence.map(h=>`
+    <div class="code-ev-row">
+      <div class="code-ev-loc">${h.file}:${h.line}${h.weight==='weak'?' <span class="sim-tag">indirect</span>':''}</div>
+      <div class="code-ev-snippet">${escapeHtml(h.snippet)}</div>
+    </div>`).join('');
+  return `<span class="cite-hover evidence-hover"><span class="evidence-trigger">evidence</span><span class="cite-tooltip evidence-tooltip code-ev-tooltip">
+    <div class="ct-title">Evidence from your source</div>
+    ${rowsHtml}
+    <div class="evidence-disclaimer">Matched in the files you uploaded — pattern-based evidence, not a legal determination.</div>
+  </span></span>`;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function renderCountryBreakdown(site, scan){
@@ -274,18 +333,28 @@ function renderComplianceTab(site, scan){
     const {scanned, checklist, label} = regDefs(regKey);
     const allIds = scanned.map(r=>r.id).concat(checklist.map(i=>i.id)).join(',');
 
+    const isCodeSite = site.kind === 'code';
     const scannedRows = scanned.map(req=>{
       const raw = rawStatus(site, scan, regKey, req, 'scanned');
       const eff = itemEffectiveStatus(site, scan, regKey, req, 'scanned');
       const stClass = eff.toLowerCase();
       const collapsed = isCollapsed(req.id, eff);
       let note = '';
-      if(eff==='Fail') note = `<div class="req-note fail">${req.hints.fail}${evidenceHover(req, eff)}</div>${renderPrecedentInline(req)}`;
-      else if(eff==='Partial') note = `<div class="req-note partial">${req.hints.partial}${evidenceHover(req, eff)}</div>${renderPrecedentInline(req)}`;
+      if(isCodeSite){
+        const verdict = site.codeEvidence[req.id];
+        const evHover = codeEvidenceHover(verdict);
+        if(eff==='Fail') note = `<div class="req-note fail">${verdict.rationale}${evHover}</div>${renderPrecedentInline(req)}`;
+        else if(eff==='Partial') note = `<div class="req-note partial">${verdict.rationale}${evHover}</div>${renderPrecedentInline(req)}`;
+        else if(eff==='Pending') note = `<div class="req-note">${verdict.rationale}</div>`;
+        else note = `<div class="req-note">${verdict.rationale}${evHover}</div>`;
+      } else {
+        if(eff==='Fail') note = `<div class="req-note fail">${req.hints.fail}${evidenceHover(req, eff)}</div>${renderPrecedentInline(req)}`;
+        else if(eff==='Partial') note = `<div class="req-note partial">${req.hints.partial}${evidenceHover(req, eff)}</div>${renderPrecedentInline(req)}`;
+      }
       return `
         <div class="ledger-row">
           <div>
-            <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button><span class="source-tag">Scanned</span>${citeHover(req)} ${req.text}</div>
+            <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button><span class="source-tag ${isCodeSite?'code':''}">${isCodeSite?'Source audit':'Scanned'}</span>${citeHover(req)} ${req.text}</div>
             ${!collapsed ? `
               <div class="layman-text">${req.layman}</div>
               ${note}
@@ -307,7 +376,7 @@ function renderComplianceTab(site, scan){
           <button type="button" class="link-btn" style="margin-left:12px;" data-collapse-all="${allIds}">Collapse all</button>
           <button type="button" class="link-btn" style="margin-left:8px;" data-expand-all="${allIds}">Expand all</button>
         </div>
-        <div class="ledger-section-label">Scanned — automated, no action needed from you</div>
+        <div class="ledger-section-label">${isCodeSite ? 'Source-audited — real evidence from your uploaded code' : 'Scanned — automated, no action needed from you'}</div>
         <div class="ledger">${scannedRows}</div>
         <div class="ledger-section-label">Self-attested — ${resolved ? 'complete' : 'required before a final grade is given'}</div>
         <div class="ledger">${checklistRows}</div>
@@ -409,14 +478,17 @@ function renderChecklistItem(site, scan, regKey, item){
     } else if(st.finalized){
       const staleDays = st.attestedAt ? Math.floor((Date.now()-st.attestedAt)/86400000) : 0;
       const isStale = staleDays > STALE_DAYS;
+      const fromCode = !!st.fromCode;
+      const evHover = fromCode ? codeEvidenceHover(site.codeEvidence && site.codeEvidence[item.id]) : '';
       bodyHtml = `
         <div class="checklist-body">
           <div class="result-box">
+            ${fromCode ? `<span class="confidence-tag code-attested-tag">Auto-attested from source</span>` : ''}
             <span class="confidence-tag">Confidence: ${st.confidence}</span>
             ${isStale ? `<span class="stale-badge">Needs re-attestation</span>` : ''}
           </div>
-          <div class="rationale-text">${st.rationale}</div>
-          <div class="attested-meta">Attested ${staleDays===0?'today':staleDays+' day'+(staleDays===1?'':'s')+' ago'}${isStale ? ' — stale, last-known status still counted toward score.' : '.'}</div>
+          <div class="rationale-text">${st.rationale}${evHover}</div>
+          <div class="attested-meta">${fromCode?'Auto-attested from source audit':'Attested'} ${staleDays===0?'today':staleDays+' day'+(staleDays===1?'':'s')+' ago'}${isStale ? ' — stale, last-known status still counted toward score.' : '.'}</div>
         </div>
       `;
     } else {
@@ -446,6 +518,7 @@ function renderChecklistItem(site, scan, regKey, item){
             ${!collapsed ? `
               <div class="layman-text" style="margin-left:27px;">${item.layman}</div>
               <div class="checklist-guidance">${item.guidance}</div>
+              ${(site.kind==='code' && !checked) ? `<div class="checklist-guidance code-no-evidence">Source audit found no evidence for this item — attest it manually below, or override.</div>` : ''}
             ` : ''}
           </div>
         </div>
@@ -533,6 +606,9 @@ function renderLegislationTab(site){
 }
 
 function renderTrustTab(scan){
+  if(!scan.trust){
+    return `<p class="section-note">Privacy Trust measures how the site's privacy practices come across on its public-facing pages — this entry was audited from source code, which doesn't include that surface. Run a website scan of the deployed site to get a trust score.</p>`;
+  }
   const grade = gradeLabel(scan.trust.score);
   const catsHtml = TRUST_CATS.map(c=>{
     const score = scan.trust.scores[c.id];
@@ -655,10 +731,14 @@ function buildPrintReportHTML(site, scan){
     html += `<div class="pr-item">${c.item.text} — ${SEV_LABEL[c.item.sev]}${fine ? `<br><span class="pr-meta">Comparable enforcement action: ${fine.who}, ${fine.fine} (${fine.regulator}, ${fine.year}) — real public case cited for comparison, not a claim about this site</span>` : ''}</div>`;
   });
 
-  html += `<h2>Privacy Trust — ${scan.trust.score}/100 (${gradeLabel(scan.trust.score)})</h2>`;
-  TRUST_CATS.forEach(c=>{
-    html += `<div class="pr-item">${c.name}: ${scan.trust.scores[c.id]}/100</div>`;
-  });
+  if(scan.trust){
+    html += `<h2>Privacy Trust — ${scan.trust.score}/100 (${gradeLabel(scan.trust.score)})</h2>`;
+    TRUST_CATS.forEach(c=>{
+      html += `<div class="pr-item">${c.name}: ${scan.trust.scores[c.id]}/100</div>`;
+    });
+  } else {
+    html += `<h2>Privacy Trust</h2><div class="pr-item">Not applicable — this entry was audited from source code rather than the public site.</div>`;
+  }
 
   html += `<p class="pr-meta" style="margin-top:24px;">This report provides informational guidance only, not legal advice. Enforcement figures cite real, publicly reported cases for comparison only — not a finding about this site. Generated by a prototype — self-attested items and their AI-style review are simulated.</p>`;
   return html;
