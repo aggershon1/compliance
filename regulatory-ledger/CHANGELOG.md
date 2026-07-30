@@ -2,6 +2,28 @@
 
 All notable changes to this prototype are logged here.
 
+## [0.8.0] — Strictness dial, exportable audit log, repo upload retired
+
+Ships the three roadmap items that needed no backend.
+
+### Added
+- **Strictness dial** (Settings) — one control for how literally a finding must match the letter of the law, from "Lenient" to "Letter of the law." The canonical case: whether a footer link reading *"Do Not Sell My Information"* satisfies a statute that says *"Do Not Sell My **Personal** Information."* Strict flags it, lenient accepts it, and the posture is now the user's call rather than a hardcoded threshold — it drives the checklist reviewer's paraphrase tolerance (`STRICTNESS_LEVELS` in data.js), with paraphrase matching disabled entirely at the strictest setting.
+  - Changing the dial **re-evaluates existing self-attestations** that were judged from a written description, so a recorded status reflects the posture you're actually using. Manual overrides are never touched (an explicit human verdict outranks the reviewer at any strictness), and `attestedAt` is preserved so staleness still tracks when a person attested, not when we recomputed.
+- **Exportable audit log** (`↓ Export audit log`) — a printable/PDF record of provenance behind the current posture: every assessment run, each requirement's status and where it came from, every attestation with confidence and timestamp, every override with its stated reason, and any requirement overridden repeatedly. Distinct from the existing summary report — that one is for stakeholders, this is for "on what basis did you conclude that, and when?"
+
+### Changed
+- **Severity weighting is no longer user-adjustable.** The Settings slider it occupied now controls strictness. Severity ("how bad is this") and strictness ("how literally do we read this") are genuinely different questions, and two sliders would have muddled both — weights are now fixed at `DEFAULT_SEV_WEIGHT`.
+- Persisted state now stores `strictness` in place of `sevWeights`. No storage-version bump was needed: the loader merges known fields, so existing saved sessions keep their sites, overrides, and attestations and simply pick up the default strictness.
+
+### Removed
+- **The codebase-upload entry path is retired.** Shipping a company's source into a web tool doesn't survive most security reviews, even though the analysis never left the machine. The New Scan form is back to a single URL entry, `codeaudit.js` is no longer loaded, and its rules moved into that file so no dead data sits in `data.js`.
+  - Entries audited before the retirement **remain viewable and still count toward their scores**, carrying a note explaining the retirement. Destroying existing findings would have thrown away audit history, which is the opposite of what a compliance tool should do.
+  - The engine is preserved in-tree, unloaded, because the analysis was never the problem — only the ingestion gesture was. A future GitHub App or local CLI would reuse it largely as-is.
+
+### Notes — honest consequence
+- This is a **net reduction in what the product does for real**. The source audit was the only non-simulated analysis and the only thing that auto-attested behind-login requirements; without it, new entries are entirely simulated again and that attestation burden returns. `README.md`'s real-vs-mocked table and `CLAUDE.md` are updated to say so plainly rather than let the docs imply a capability that's gone. Restoring a real analysis path is now the first open item under Later in `ROADMAP.md`.
+- The strictness dial's practical effect is mostly moving items between Pass and Partial, since the reviewer's verdict space is Pass/Partial/Fail — a wording deviation makes something partially satisfied rather than failing outright.
+
 ## [0.7.0] — Manual work persists across sessions; re-audit an existing entry
 
 ### Added

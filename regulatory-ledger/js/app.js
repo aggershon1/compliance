@@ -9,11 +9,7 @@ const state = {
   scanStepIndex: 0,
   scanTargetDomain: '',
   scanningExistingSiteId: null,
-  scanKind: 'url',              // 'url' (simulated crawl) or 'code' (real source audit)
-  codeAuditProgress: null,      // {read, total} while a source audit is running
   showNewScanForm: false,
-  newScanMode: 'url',           // which entry path the New Scan form is showing
-  pendingCodeFileCount: 0,      // count of files picked in the folder input (files themselves live outside state)
   newScanCountries: [],        // country codes checked in the New Scan form
   newScanManualCountries: [],  // [{name}] added via free-text in the New Scan form
   newScanManualInput: '',      // draft text for the manual-add box
@@ -30,17 +26,12 @@ const state = {
   collapsedItems: {},
   manualCountryInput: {},       // per-site draft text for the post-scan "add a country" box
   manualCompetitorInput: {},    // per-site draft text for the "add a competitor" box
-  sevWeights: {...DEFAULT_SEV_WEIGHT},
-  settingsMenuOpen: false,       // top-right Settings dropdown (weighting + stored data)
+  strictness: DEFAULT_STRICTNESS,  // how literally findings must match statutory wording
+  settingsMenuOpen: false,       // top-right Settings dropdown (strictness + stored data)
   storageWarning: null,          // set by storage.js when a save can't fully succeed
   lastLoadedAt: null,            // timestamp of the restored session, if any
   importMessage: null,           // result banner after an import attempt
 };
-
-/* Selected folder files for a pending source audit. Deliberately a module
-   variable, not state: render() rebuilds the DOM (losing the file input's
-   selection), and File handles aren't serializable state anyway. */
-let pendingCodeFiles = null;
 
 const SCAN_STEPS = [
   'Crawling site structure (logged-out pages only)…',
@@ -83,6 +74,34 @@ function countryLabelForDraft(){
   if(all.length===0) return '';
   if(all.length===1) return all[0];
   return `${all[0]} +${all.length-1} more`;
+}
+
+/* Re-run the automated review of every self-attestation that was judged
+   from a written description, using the current strictness setting. Same
+   input, same reviewer — only the tolerance changed, so the recorded status
+   should move with it rather than reflect a threshold the user has since
+   dialled away from.
+
+   Deliberately untouched: manual overrides (an explicit human verdict
+   outranks the reviewer at any strictness), items still awaiting a
+   follow-up answer, and `attestedAt` — staleness tracks when a person
+   attested, not when we recomputed. */
+function reevaluateAttestations(){
+  const allItems = [...GDPR_CHECKLIST, ...CCPA_CHECKLIST];
+  state.sites.forEach(site=>{
+    allItems.forEach(item=>{
+      const st = site.checklistState[item.id];
+      if(!st || !st.finalized || st.fromCode) return;
+      if(site.overrides[item.id]) return;
+      const draft = state.drafts[draftKey(site.id, item.id)];
+      if(!draft || !draft.description) return;
+      const result = reviewSubmission(item, draft.description, !!draft.screenshot, draft.followUpAnswer || '');
+      if(result.needsFollowUp) return;   // wouldn't clear review at this strictness; leave the recorded verdict
+      st.status = result.status;
+      st.confidence = result.confidence;
+      st.rationale = result.rationale;
+    });
+  });
 }
 
 /* ============================================================
@@ -133,33 +152,12 @@ function attachHandlers(site){
     });
   });
 
-  document.querySelectorAll('[data-scan-mode]').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      state.newScanMode = el.getAttribute('data-scan-mode');
-      state.newScanError = false;
-      render();
-    });
-  });
-
-  const codeFolderInput = document.getElementById('code-folder-input');
-  if(codeFolderInput) codeFolderInput.addEventListener('change', (e)=>{
-    pendingCodeFiles = e.target.files.length ? Array.from(e.target.files) : null;
-    state.pendingCodeFileCount = pendingCodeFiles ? pendingCodeFiles.length : 0;
-    state.newScanError = false;
-    render();
-  });
-
   const newForm = document.getElementById('new-scan-form');
   if(newForm) newForm.addEventListener('submit', (e)=>{
     e.preventDefault();
     if(state.newScanCountries.length===0 && state.newScanManualCountries.length===0){
       state.newScanError = 'Select or add at least one country before scanning.';
       render();
-      return;
-    }
-    if(state.newScanMode === 'code'){
-      if(pendingCodeFiles && pendingCodeFiles.length) startCodeAudit(pendingCodeFiles);
-      else { state.newScanError = 'Choose your repo folder before running the audit.'; render(); }
       return;
     }
     const val = document.getElementById('new-scan-input').value;
@@ -183,6 +181,13 @@ function attachHandlers(site){
     if(!site) return;
     const scan = site.scans[site.scans.length-1];
     document.getElementById('print-report').innerHTML = buildPrintReportHTML(site, scan);
+    window.print();
+  });
+
+  const exportAuditBtn = document.getElementById('btn-export-audit');
+  if(exportAuditBtn) exportAuditBtn.addEventListener('click', ()=>{
+    if(!site) return;
+    document.getElementById('print-report').innerHTML = buildAuditLogHTML(site);
     window.print();
   });
 
@@ -303,13 +308,6 @@ function attachHandlers(site){
     render();
   });
 
-  const reauditInput = document.getElementById('reaudit-folder-input');
-  if(reauditInput) reauditInput.addEventListener('change', (e)=>{
-    if(!site) return;
-    const files = Array.from(e.target.files || []);
-    if(files.length) startCodeAudit(files, site);
-  });
-
   const regionFilter = document.getElementById('leg-region-filter');
   if(regionFilter) regionFilter.addEventListener('change', (e)=>{ state.legFilterRegion = e.target.value; render(); });
   const statusFilter = document.getElementById('leg-status-filter');
@@ -317,17 +315,12 @@ function attachHandlers(site){
   const siteOnlyToggle = document.getElementById('leg-site-only-toggle');
   if(siteOnlyToggle) siteOnlyToggle.addEventListener('change', (e)=>{ state.legFilterSiteOnly = e.target.checked; render(); });
 
-  document.querySelectorAll('[data-weight-for]').forEach(el=>{
-    el.addEventListener('input', (e)=>{
-      const sev = el.getAttribute('data-weight-for');
-      const v = Number(e.target.value);
-      if(!isNaN(v)) state.sevWeights[sev] = v;
-      render();
-    });
-  });
-  const resetWeightsBtn = document.getElementById('btn-reset-weights');
-  if(resetWeightsBtn) resetWeightsBtn.addEventListener('click', ()=>{
-    state.sevWeights = {...DEFAULT_SEV_WEIGHT};
+  const strictnessSlider = document.getElementById('strictness-slider');
+  if(strictnessSlider) strictnessSlider.addEventListener('input', (e)=>{
+    const v = Number(e.target.value);
+    if(isNaN(v) || !STRICTNESS_LEVELS[v]) return;
+    state.strictness = v;
+    reevaluateAttestations();
     render();
   });
 
@@ -477,7 +470,6 @@ function attachHandlers(site){
 
 function startScan(domain, existingSite){
   state.scanning = true;
-  state.scanKind = 'url';
   state.scanningExistingSiteId = existingSite ? existingSite.id : null;
   state.scanTargetDomain = domain;
   state.scanStepIndex = 0;
@@ -523,118 +515,6 @@ function finishScan(domain, existingSite){
   }
   state.scanning = false;
   state.scanningExistingSiteId = null;
-  state.activeTab = 'compliance';
-  render();
-}
-
-/* ============================================================
-   SOURCE AUDIT LIFECYCLE (Track 3 — real analysis, NOT simulated)
-   ============================================================ */
-async function startCodeAudit(files, existingSite){
-  const rootName = existingSite ? existingSite.domain : codeAuditRootName(files);
-  state.scanning = true;
-  state.scanKind = 'code';
-  state.scanningExistingSiteId = existingSite ? existingSite.id : null;
-  state.scanTargetDomain = rootName;
-  state.codeAuditProgress = {read:0, total:0};
-  state.showNewScanForm = false;
-  render();
-
-  const audit = await analyzeCodebase(files, (read, total)=>{
-    state.codeAuditProgress = {read, total};
-    render();
-  });
-
-  if(audit.analyzedFiles === 0){
-    state.scanning = false;
-    state.scanningExistingSiteId = null;
-    state.codeAuditProgress = null;
-    const msg = 'No readable source files found in that folder — check that you selected the repo root, not a build output or empty directory.';
-    if(existingSite){ state.reauditError = msg; }
-    else { state.showNewScanForm = true; state.newScanError = msg; }
-    render();
-    return;
-  }
-  finishCodeAudit(rootName, audit, existingSite);
-}
-
-/* Build the scanned-track statuses + code-derived attestations from a fresh
-   audit. Shared by first-time audits and re-audits. */
-function codeAuditScanRecord(audit){
-  const scannedGDPR = {}; GDPR_SCANNED.forEach(r=>{ scannedGDPR[r.id] = audit.results[r.id].status; });
-  const scannedCCPA = {}; CCPA_SCANNED.forEach(r=>{ scannedCCPA[r.id] = audit.results[r.id].status; });
-  return {
-    timestamp: audit.analyzedAt,
-    scanned: {GDPR: scannedGDPR, CCPA: scannedCCPA},
-    trust: null,   // Privacy Trust measures the public-facing site, not source — see renderTrustTab
-    source: 'code',
-  };
-}
-function codeAuditAttestation(audit, itemId){
-  const r = audit.results[itemId];
-  if(!r || !r.found) return null;
-  return {
-    checked:true, finalized:true, needsFollowUp:false,
-    status:r.status, confidence:r.confidence, rationale:r.rationale,
-    attestedAt: audit.analyzedAt, fromCode:true,
-  };
-}
-
-function finishCodeAudit(rootName, audit, existingSite){
-  const scan = codeAuditScanRecord(audit);
-
-  if(existingSite){
-    /* Re-audit: the whole point is that manual work survives. Overrides are
-       left completely untouched. Checklist entries you attested by hand are
-       preserved as-is; entries that were derived from the previous audit
-       (fromCode) are refreshed against the new evidence, because derived
-       data should track the code rather than go stale silently. */
-    existingSite.scans.push(scan);
-    [...GDPR_CHECKLIST, ...CCPA_CHECKLIST].forEach(item=>{
-      const prev = existingSite.checklistState[item.id];
-      const isManual = prev && prev.checked && !prev.fromCode;
-      if(isManual) return;
-      const fresh = codeAuditAttestation(audit, item.id);
-      if(fresh) existingSite.checklistState[item.id] = fresh;
-      else if(prev && prev.fromCode) delete existingSite.checklistState[item.id];
-    });
-    existingSite.codeEvidence = audit.results;
-    existingSite.codeStats = {totalFiles: audit.totalFiles, analyzedFiles: audit.analyzedFiles, skippedFiles: audit.skippedFiles};
-    state.selectedSiteId = existingSite.id;
-  } else {
-    const countryCodes = state.newScanCountries;
-    const manualCountries = state.newScanManualCountries;
-    const checklistState = {};
-    [...GDPR_CHECKLIST, ...CCPA_CHECKLIST].forEach(item=>{
-      const fresh = codeAuditAttestation(audit, item.id);
-      if(fresh) checklistState[item.id] = fresh;
-    });
-
-    const id = 'site-' + Date.now();
-    const docketNum = state.nextDocketNum++;
-    state.sites.push({
-      id, domain: rootName, docketNum,
-      kind: 'code',
-      addedAt: Date.now(),
-      manualRegs: defaultManualRegsFromCountries(countryCodes),
-      selectedCountries: [...countryCodes],
-      manualCountries: manualCountries.map(m=>({...m})),
-      manualCompetitors: [],
-      scans: [scan],
-      checklistState,
-      overrides: {},
-      codeEvidence: audit.results,
-      codeStats: {totalFiles: audit.totalFiles, analyzedFiles: audit.analyzedFiles, skippedFiles: audit.skippedFiles},
-    });
-    state.selectedSiteId = id;
-  }
-
-  pendingCodeFiles = null;
-  state.pendingCodeFileCount = 0;
-  state.codeAuditProgress = null;
-  state.scanningExistingSiteId = null;
-  state.reauditError = null;
-  state.scanning = false;
   state.activeTab = 'compliance';
   render();
 }
