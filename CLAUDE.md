@@ -15,16 +15,22 @@ The core product insight driving the architecture: most of what GDPR/CCPA actual
 
 ```
 regulatory-ledger/
-  regulatory-ledger.html   # the entire app — single file, vanilla JS, no build step, no framework
+  regulatory-ledger.html   # HTML shell + CSS; loads js/*.js via plain <script> tags, no build step
+  js/
+    data.js                # requirement/country/bill/trust-cat data, no logic
+    scoring.js              # blended scoring, country posture derivation, gap ranking
+    reviewer.js             # simulated checklist-submission reviewer
+    render.js               # all render*()/build*HTML() functions
+    app.js                  # state object + event handlers + scan lifecycle + bootstrap render()
   SPEC.md                  # full product spec, including the dual-track model and phased roadmap
   README.md                # what's real vs. simulated in this prototype
   CHANGELOG.md             # version history — check this before assuming what's already been built
   FEEDBACK.md              # running log of un-triaged review feedback, not yet implemented
 ```
 
-## Conventions in `regulatory-ledger.html`
+## Conventions in `regulatory-ledger.html` / `js/*.js`
 
-- **No build step.** Open directly in a browser, or serve with `python3 -m http.server`. Don't introduce a bundler/framework without discussing it first — that's a deliberate simplicity choice, not an oversight.
+- **No build step.** Open directly in a browser, or serve with `python3 -m http.server`. The five `js/*.js` files are loaded as plain classic `<script src>` tags (not ES modules) specifically so `file://` still works with no bundler — keep new code in that same global-scope style rather than introducing `import`/`export`. Don't introduce a bundler/framework without discussing it first — that's a deliberate simplicity choice, not an oversight.
 - **All data is currently simulated/mocked.** Scan results come from a seeded pseudo-random function (`seededRandom`/`statusFor`) keyed off domain + regional variant, not a real crawler. The checklist reviewer (`reviewSubmission`) is keyword-matching, not a live model call. Don't "fix" this by quietly making it look more real — if replacing mock logic with something real, say so explicitly and update `README.md` / `CHANGELOG.md` accordingly.
 - **State is in-memory only**, held in a single `state` object, re-rendered via a full `render()` call on every change (no framework, no virtual DOM diffing — `innerHTML` is rebuilt each time). Text inputs avoid triggering full re-renders on every keystroke (see `oninput` handlers that write to `state.drafts` without calling `render()`) to avoid losing focus/cursor position — preserve this pattern when adding new inputs.
 - **Regulation data model**: each requirement (scanned or checklist) is an object with `id`, `code` (legal citation), `text`, `sev` (severity: high/med/low), `layman` (plain-language explanation), `articleTitle`/`articleText` (shown on citation hover), and `proposals` (fix suggestions for the Recommendations tab). Checklist items additionally have `guidance`, `followUp`, `pos`/`neg` (keyword lists for the simulated reviewer). Keep new requirements consistent with this shape.

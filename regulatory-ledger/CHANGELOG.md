@@ -2,6 +2,31 @@
 
 All notable changes to this prototype are logged here.
 
+## [Unreleased] — Country model rework, evidence hover, competitor benchmark, settings, fuzzy review matching
+
+**Not yet merged to main — pushed for review on a feature branch.**
+
+### Added
+- **Countries replace the old Global/US/EU/CH variant picker.** The New Scan form now asks which countries the scan covers (multi-select from the existing country list, plus free-text entry for a country not on it), instead of a single regional-variant chip. The old "Global / default" catch-all option is gone entirely.
+- **Per-country + overall grading**: the Compliance Results tab shows a "Score by country" breakdown (each selected country against whichever regulation it maps to) plus one blended "Overall" figure, in addition to the existing per-regulation stamps. Countries sharing the same regulation intentionally show the same number — see the Notes below on why this isn't faked as independent variance.
+- **Manually-entered countries also drive the Upcoming Legislation tab**: a new "show only legislation relevant to this site's countries" toggle (on by default) filters the sample `BILLS` dataset using a best-effort country→region lookup, including simple keyword matching for manually-typed country names.
+- **Evidence hover on failed/partial scanned items**: a "why?" tooltip next to the existing fail/partial explanation shows an illustrative quoted snippet and a page location, using the same hover-tooltip pattern as citation hovers. Clearly labeled as simulated — this prototype has no real crawler yet to cite the actual page.
+- **Collapsible requirement rows**: every scanned and self-attested row can be individually collapsed to just its status line, plus a "Collapse all / Expand all" pair per regulation block. Starts fully expanded.
+- **"vs. Competitors" tab**: a simple bar-chart comparison of the open site's blended score per regulation against a small set of illustrative, clearly-labeled placeholder competitors (not real companies).
+- **Settings tab**: sliders to adjust the high/med/low severity weights that `blendedScore()`/`gapItems()` use, with a reset-to-defaults control. Applies immediately across every open site.
+- **"Wiggle room" matching in the checklist reviewer**: `countMatches()` now also accepts a close paraphrase of a pos/neg keyword phrase (≥60% of its meaningful words present, prefix-matched) instead of requiring an exact substring, so a differently-worded but equivalent description isn't marked down for phrasing alone.
+
+### Changed
+- `site.variant` is gone; sites now carry `selectedCountries` (known country codes) and `manualCountries` (free-text entries), and a docket/header/print-report label is derived from those instead of a single variant word.
+- The internal EU/US/CH-style simulated consent-behavior bucket (`simPostureFor`) is now derived from a site's selected countries rather than being its own user-facing choice — this is what let the Global/Other picker go away without losing the existing US-vs-EU cookie-banner demo.
+- `SEV_WEIGHT` (data.js) is now `DEFAULT_SEV_WEIGHT`, seeding the new adjustable `state.sevWeights` that scoring reads from.
+
+### Notes — flagged deviations from `SPEC.md`
+- **Per-country grading intentionally doesn't fabricate per-country variance.** SPEC.md's data model computes one status per regulation, not per country; two countries mapped to the same regulation (e.g. two EU states) show the identical GDPR number here on purpose, since it *is* the same determination. If independent-looking per-country numbers are wanted instead, that needs a real decision on whether/how a single regulation's compliance could legitimately differ by member state — flagging rather than inventing that silently.
+- **The "vs. Competitors" tab anticipates SPEC.md's Phase 4 item** ("Anonymized, opt-in benchmarking against similar companies in the same sector"), built now instead of later, using generic placeholder labels rather than real companies since no real comparison data exists. SPEC.md's roadmap section hasn't been updated to reflect this landing early — worth a decision on whether to move it in the spec or keep this tab as a rough spike.
+- **The "wiggle room" example given (site text vs. legal phrasing) doesn't apply to the Scanned track**, which is pseudo-random in this Phase 0 prototype and never reads real site text — there is no real matching there yet to loosen. The fuzzy-matching change only affects the self-attested checklist reviewer, which is the only place actual text matching exists today. Applying "close-enough wording" to the Scanned track is a Phase 1 concern, once a real crawler + rule engine exist.
+- Manually-entered countries are tracked for display and legislation-matching purposes but don't get their own requirement checklist — this MVP's requirement set only covers GDPR & CCPA per SPEC.md; a manual "Brazil" entry, for example, doesn't imply an LGPD checklist exists.
+
 ## [0.3.0] — Review feedback batch (regional variants, overrides, plain language, jurisdiction filter, UX/export, recommendations)
 
 ### Added
