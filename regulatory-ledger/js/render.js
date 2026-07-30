@@ -104,11 +104,8 @@ function renderMain(site){
       <div class="header-actions">
         <button class="export-btn" id="btn-export">↓ Export PDF report</button>
         <button class="ff-btn" id="btn-fastforward" title="Demo only: ages all self-attested items by 100 days">⏩ Simulate 100 days (demo)</button>
-        ${site.kind==='code'
-          ? `<label class="rescan-btn" id="btn-reaudit">↻ Re-audit (choose folder)
-               <input type="file" id="reaudit-folder-input" webkitdirectory directory multiple style="display:none;">
-             </label>`
-          : `<button class="rescan-btn" id="btn-rescan">Re-scan now</button>`}
+        <button class="export-btn" id="btn-export-audit">↓ Export audit log</button>
+        ${site.kind==='code' ? '' : `<button class="rescan-btn" id="btn-rescan">Re-scan now</button>`}
       </div>
     </div>
 
@@ -118,7 +115,7 @@ function renderMain(site){
       <button class="reg-toggle ${effectiveRegs(site).CCPA?'on':''}" data-reg="CCPA">CCPA / CPRA</button>
       <button class="country-toggle-btn ${state.countryPanelOpen?'open':''}" id="btn-country-toggle">Filter by country ${state.countryPanelOpen?'▴':'▾'}</button>
     </div>
-    ${state.reauditError ? `<div class="err" style="max-width:620px;">${state.reauditError}</div>` : ''}
+    ${site.kind==='code' ? `<div class="retired-track-note">Historical record — this entry came from the codebase-upload path, retired in v0.8.0 (see ROADMAP). Its findings and evidence are preserved and still count toward the score; it can't be re-audited from the browser. Overrides and attestations remain fully editable.</div>` : ''}
     <p class="picker-tip">Tip: selecting a country below can keep a regulation active even if its direct toggle looks off — the picker shows the combined result of both.</p>
     ${renderCountryPanel(site)}
 
@@ -173,40 +170,18 @@ function renderNewScanForm(canCancel){
   const manualChips = state.newScanManualCountries.map((m,i)=>
     `<span class="manual-country-chip">${m.name} <button type="button" class="chip-remove" data-newscan-remove-manual="${i}" aria-label="Remove ${m.name}">×</button></span>`
   ).join('');
-  const codeMode = state.newScanMode === 'code';
-
-  const entryHtml = codeMode ? `
-    <label>Codebase</label>
-    <div class="code-pick-row">
-      <label class="file-btn">📁 Choose repo folder
-        <input type="file" id="code-folder-input" webkitdirectory directory multiple style="display:none;">
-      </label>
-      ${state.pendingCodeFileCount ? `<span class="code-pick-count mono">${state.pendingCodeFileCount.toLocaleString()} files selected</span>` : `<span class="code-pick-count">No folder selected yet</span>`}
-      <button type="submit" class="go-btn" style="border-radius:var(--radius);">Run source audit</button>
-    </div>
-    <p class="code-privacy-note">Your files are read and analyzed entirely in this browser tab — nothing is uploaded or sent anywhere. Vendor and build directories (node_modules, dist, .git…) are skipped automatically.</p>
-  ` : `
-    <label>Website</label>
-    <div class="scan-form-row">
-      <input type="text" id="new-scan-input" placeholder="e.g. acmehealth.com" autocomplete="off">
-      <button type="submit" class="go-btn">Scan site</button>
-    </div>
-  `;
-
   return `
     <div class="empty-state">
       <h1 class="disp">${canCancel ? 'Start a new scan.' : 'Open a new case file.'}</h1>
-      <p>${codeMode
-        ? 'Upload a codebase you’re authorized to audit, and its source is analyzed for real evidence of each GDPR and CCPA/CPRA requirement — including the behind-login flows a website crawl can never see. Items with no evidence in source still go through the normal self-attestation flow.'
-        : 'Enter a website to run a full-site crawl of its logged-out surface against GDPR and CCPA/CPRA, then fill out the self-attested checklist for what happens behind login.'}
+      <p>Enter a website to run a full-site crawl of its logged-out surface against GDPR and CCPA/CPRA, then fill out the self-attested checklist for what happens behind login.
         Select every country this review should cover — it drives which regulations apply, the scoring breakdown, and which upcoming legislation is shown.</p>
-      <div class="scan-mode-row">
-        <button type="button" class="reg-toggle ${!codeMode?'on':''}" data-scan-mode="url">Scan a website</button>
-        <button type="button" class="reg-toggle ${codeMode?'on':''}" data-scan-mode="code">Audit a codebase</button>
-      </div>
       <form class="scan-form" id="new-scan-form">
-        ${entryHtml}
-        <label>Countries this ${codeMode?'audit':'scan'} covers</label>
+        <label>Website</label>
+        <div class="scan-form-row">
+          <input type="text" id="new-scan-input" placeholder="e.g. acmehealth.com" autocomplete="off">
+          <button type="submit" class="go-btn">Scan site</button>
+        </div>
+        <label>Countries this scan covers</label>
         <div class="country-panel" style="margin-bottom:14px;">
           ${rows}
           <div class="country-footnote">* Switzerland is approximated to the GDPR baseline in this prototype — its own law (FADP) is distinct and has its own nuances.</div>
@@ -226,20 +201,6 @@ function renderNewScanForm(canCancel){
 function renderScanningView(){
   const existingSite = state.scanningExistingSiteId ? state.sites.find(s=>s.id===state.scanningExistingSiteId) : null;
   const label = existingSite ? countryLabelFor(existingSite) : countryLabelForDraft();
-  if(state.scanKind === 'code'){
-    const p = state.codeAuditProgress || {read:0, total:0};
-    const pct = p.total ? Math.round((p.read/p.total)*100) : 0;
-    return `
-      <div class="empty-state">
-        <h1 class="disp">Auditing ${state.scanTargetDomain}${label?` (${label})`:''}</h1>
-        <div class="scanning-box">
-          <div class="cursor mono" style="margin-bottom:10px;">Reading your source files locally — nothing leaves this browser tab.</div>
-          <div class="scanning-step current"><span class="mark">→</span>${p.total ? `Analyzed ${p.read.toLocaleString()} of ${p.total.toLocaleString()} files (${pct}%)` : 'Filtering vendor and build directories…'}</div>
-          <div class="bar-track" style="margin-top:10px;"><div class="bar-fill" style="width:${pct}%; background:var(--verdigris);"></div></div>
-        </div>
-      </div>
-    `;
-  }
   const stepsHtml = SCAN_STEPS.map((s,i)=>{
     let cls='scanning-step', mark='·';
     if(i<state.scanStepIndex){ cls+=' done'; mark='✓'; }
@@ -697,19 +658,18 @@ function renderCompetitorsTab(site, scan){
 }
 
 function renderSettingsDropdown(){
-  const rows = ['high','med','low'].map(sev=>`
-    <div class="settings-weight-row">
-      <div class="settings-weight-label">${SEV_LABEL[sev]}</div>
-      <input type="range" min="1" max="5" step="1" value="${state.sevWeights[sev]}" data-weight-for="${sev}">
-      <span class="mono">${state.sevWeights[sev]}×</span>
-    </div>
-  `).join('');
+  const lvl = STRICTNESS_LEVELS[state.strictness] || STRICTNESS_LEVELS[DEFAULT_STRICTNESS];
   const size = persistedSizeLabel();
   return `
-    <div class="settings-dropdown-title">Severity weighting</div>
-    <p class="settings-dropdown-note">Turn a tier up if that category of infraction concerns you more. Applies immediately, across every open site.</p>
-    ${rows}
-    <button class="submit-btn" id="btn-reset-weights">Reset to defaults</button>
+    <div class="settings-dropdown-title">Strictness</div>
+    <p class="settings-dropdown-note">How literally a finding must match the letter of the law.</p>
+    <div class="strictness-row">
+      <input type="range" min="1" max="5" step="1" value="${state.strictness}" id="strictness-slider">
+    </div>
+    <div class="strictness-scale mono"><span>Lenient</span><span>Letter of the law</span></div>
+    <div class="strictness-current"><b>${lvl.label}</b> — ${lvl.blurb}</div>
+    <div class="strictness-example">e.g. ${lvl.example}</div>
+    <p class="settings-dropdown-note" style="margin-top:10px;">Changing this re-evaluates existing self-attestations that were judged from a written description. Manual overrides are never touched.</p>
 
     <div class="settings-section-divider"></div>
     <div class="settings-dropdown-title">Saved data</div>
@@ -724,6 +684,112 @@ function renderSettingsDropdown(){
     </div>
     ${state.importMessage ? `<div class="settings-import-msg">${state.importMessage}</div>` : ''}
   `;
+}
+
+/* ============================================================
+   AUDIT LOG (printable evidence record)
+   ============================================================
+   The full provenance behind the current posture: every run, every
+   requirement's status and where it came from, every attestation, and every
+   override with its stated reason. Distinct from the summary report above —
+   that one is for stakeholders, this one is for whoever asks "on what basis
+   did you conclude that, and when?" */
+function auditTs(ts){
+  if(!ts) return '—';
+  return new Date(ts).toLocaleString('en-US',{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+}
+
+function auditItemRow(site, scan, regKey, item, source){
+  const raw = rawStatus(site, scan, regKey, item, source);
+  const eff = itemEffectiveStatus(site, scan, regKey, item, source);
+  const ov = site.overrides[item.id];
+  const st = site.checklistState[item.id];
+  let provenance = '';
+
+  if(source === 'scanned'){
+    if(site.kind === 'code'){
+      const v = site.codeEvidence && site.codeEvidence[item.id];
+      if(v && v.evidence && v.evidence.length){
+        provenance = `Source audit — matched in ${v.evidence.map(h=>`${h.file}:${h.line}`).join(', ')}.`;
+      } else if(v){
+        provenance = `Source audit — ${v.rationale}`;
+      }
+    } else {
+      provenance = 'Automated scan of the logged-out surface (simulated in this prototype).';
+    }
+  } else {
+    if(st && st.finalized){
+      provenance = `${st.fromCode ? 'Auto-attested from source audit' : 'Self-attested'} ${auditTs(st.attestedAt)} · confidence ${st.confidence}. ${st.rationale}`;
+      const staleDays = st.attestedAt ? Math.floor((Date.now()-st.attestedAt)/86400000) : 0;
+      if(staleDays > STALE_DAYS) provenance += ` <b>Stale — ${staleDays} days old, past the ${STALE_DAYS}-day re-attestation window.</b>`;
+    } else if(st && st.checked){
+      provenance = 'Checked as in-place but not yet submitted for review — counts as zero credit.';
+    } else {
+      provenance = 'Not attested — counts as zero credit.';
+    }
+  }
+
+  const overrideHtml = ov
+    ? `<div class="al-override"><b>Overridden ${auditTs(ov.timestamp)}:</b> ${ov.previousStatus} → ${ov.status}. Reason given: “${escapeHtml(ov.explanation)}”${
+        raw !== ov.previousStatus ? ` <b>Basis has since changed — the underlying result is now ${raw}.</b>` : ''}</div>`
+    : '';
+
+  return `
+    <div class="pr-item al-item">
+      <div><span class="pr-status">${eff}</span> — ${item.code} · ${item.text}</div>
+      <div class="pr-meta">${provenance}</div>
+      ${overrideHtml}
+    </div>`;
+}
+
+function buildAuditLogHTML(site){
+  const scan = site.scans[site.scans.length-1];
+  const eff = effectiveRegs(site);
+  const regs = []; if(eff.GDPR) regs.push('GDPR'); if(eff.CCPA) regs.push('CCPA');
+  const lvl = STRICTNESS_LEVELS[state.strictness] || STRICTNESS_LEVELS[DEFAULT_STRICTNESS];
+  const label = countryLabelFor(site);
+
+  let html = `<h1>Compliance Audit Log</h1>
+    <div class="pr-meta">
+      ${site.domain}${label?` · ${label}`:''} · Docket No. ${pad3(site.docketNum)}<br>
+      Entry opened ${auditTs(site.addedAt)} · Log generated ${auditTs(Date.now())}<br>
+      Assessment method: ${site.kind==='code' ? 'source audit of an uploaded codebase (real analysis)' : 'automated scan of the logged-out surface (simulated in this prototype)'} + self-attestation<br>
+      Strictness setting at time of export: <b>${lvl.label}</b> — ${lvl.blurb}
+    </div>`;
+
+  html += `<h2>Assessment runs</h2>`;
+  site.scans.forEach((s,i)=>{
+    html += `<div class="pr-item">Run ${i+1} of ${site.scans.length} — ${auditTs(s.timestamp)}${
+      s.source==='code' ? ` · source audit${site.codeStats ? ` · ${site.codeStats.analyzedFiles.toLocaleString()} files analyzed, ${site.codeStats.skippedFiles.toLocaleString()} skipped` : ''}` : ' · simulated site scan'}</div>`;
+  });
+
+  if(regs.length === 0){
+    html += `<h2>Findings</h2><div class="pr-item">No regulation currently in scope for this entry.</div>`;
+  }
+
+  regs.forEach(regKey=>{
+    const {scanned, checklist, label:regLabel} = regDefs(regKey);
+    const score = blendedScore(site, scan, regKey);
+    const resolved = allSelfAttestedResolved(site, regKey);
+    html += `<h2>${regKey} — ${score}/100 ${resolved ? `(${gradeLabel(score)})` : '(provisional — final grade pending self-attestation)'}</h2>`;
+    html += `<div class="pr-meta">${regLabel}</div>`;
+    html += `<h3>Assessed automatically</h3>`;
+    scanned.forEach(item=>{ html += auditItemRow(site, scan, regKey, item, 'scanned'); });
+    html += `<h3>Self-attested</h3>`;
+    checklist.forEach(item=>{ html += auditItemRow(site, scan, regKey, item, 'attested'); });
+  });
+
+  const repeatOverrides = Object.entries(state.overrideHistory || {}).filter(([,h])=>h.length>=2);
+  if(repeatOverrides.length){
+    html += `<h2>Repeatedly overridden requirements</h2>`;
+    html += `<div class="pr-meta">Flagged because detection logic that is corrected repeatedly may need recalibrating.</div>`;
+    repeatOverrides.forEach(([itemId, hist])=>{
+      html += `<div class="pr-item">${itemId} — overridden ${hist.length} times. Most recent reason: “${escapeHtml(hist[hist.length-1].explanation)}”</div>`;
+    });
+  }
+
+  html += `<p class="pr-meta" style="margin-top:24px;">This log records what this tool observed and what was attested to it, with timestamps and stated reasons. It is informational guidance, not legal advice, and not a certification of compliance. Automated findings are ${site.kind==='code' ? 'pattern-based evidence of implementation, not proof of correctness' : 'simulated in this prototype'}; self-attested items reflect what a user asserted. Enforcement figures cited elsewhere in this tool are real public cases used for comparison, not findings about this entry.</p>`;
+  return html;
 }
 
 /* ============================================================

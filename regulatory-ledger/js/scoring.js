@@ -56,11 +56,9 @@ function itemEffectiveStatus(site, scan, regKey, item, source){
   return rawStatus(site, scan, regKey, item, source);
 }
 
-/* Severity weights are user-adjustable from the Settings tab (state.sevWeights);
-   DEFAULT_SEV_WEIGHT (data.js) only seeds the initial values. */
 function blendedScore(site, scan, regKey){
   const {scanned, checklist} = regDefs(regKey);
-  const weights = state.sevWeights;
+  const weights = DEFAULT_SEV_WEIGHT;
   let total=0, earned=0;
   scanned.forEach(r=>{
     const st = itemEffectiveStatus(site, scan, regKey, r, 'scanned');
@@ -80,7 +78,7 @@ function blendedScore(site, scan, regKey){
 
 function gapItems(site, scan, regKey){
   const {scanned, checklist} = regDefs(regKey);
-  const weights = state.sevWeights;
+  const weights = DEFAULT_SEV_WEIGHT;
   const list = [];
   scanned.forEach(r=>{
     const st = itemEffectiveStatus(site, scan, regKey, r, 'scanned');

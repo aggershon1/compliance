@@ -27,7 +27,7 @@ const PERSIST_FIELDS = [
   'nextDocketNum',
   'drafts',           // typed descriptions / follow-up answers / screenshots
   'overrideHistory',  // drives the "overridden N times, may need recalibrating" flag
-  'sevWeights',
+  'strictness',
   'activeTab',
 ];
 

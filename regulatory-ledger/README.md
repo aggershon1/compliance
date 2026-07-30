@@ -10,7 +10,7 @@ The app is built around one core insight: most of what GDPR/CCPA actually requir
 
 - **Scanned (logged-out)** — a simulated full-site crawl against whatever's publicly observable: privacy policy, cookie banner, terms, public disclosures.
 - **Self-attested (logged-in)** — a checklist, prepopulated per regulation, for the things only visible behind auth (self-serve access/delete/export/correct, consent preference centers). You check what you have, describe how it works, optionally attach a screenshot, and the app reviews the submission — asking a targeted follow-up question and showing a rough sketch of what "compliant" typically looks like if your first answer isn't detailed enough to judge confidently.
-- **Source audit (upload a codebase)** — instead of entering a URL, upload a repo folder you're authorized to audit. The app reads the files **locally in your browser** (nothing is uploaded anywhere) and pattern-matches them against every requirement, producing real evidence citations (file, line, snippet). Checklist items with solid evidence are auto-attested from source; items with no evidence still go through the normal self-attestation flow, so the grade gate stays honest. **This track is real analysis, not simulated** — the only such piece in the prototype (see the table below), though it's pattern-based evidence, not a legal determination.
+- **Source audit (retired v0.8.0)** — a third track once let you upload a repo folder for real, in-browser pattern-matching against every requirement, with file/line evidence citations. The upload path was retired because shipping source into a web tool doesn't survive most security reviews. Entries audited before then remain viewable as historical records, and the engine is preserved in `js/codeaudit.js` (no longer loaded) for a future GitHub App or CLI path — see [`ROADMAP.md`](./ROADMAP.md).
 
 Other features:
 - **Regulation picker** — multi-select GDPR and CCPA/CPRA (MVP scope; architecture leaves room for more).
@@ -19,9 +19,10 @@ Other features:
 - **Risk & precedent, inline** — every failing/partial item on the Compliance Results tab shows its own comparable real enforcement action (company, fine, regulator, year), plus a combined potential-exposure range near the overall grade.
 - **Privacy trust tab** — a separate score covering data minimization, consent clarity, user rights support, third-party transparency, and retention specificity — independent of legal compliance.
 - **vs. Competitors tab** — a basic score comparison against other companies (illustrative — see the table below).
-- **Settings dropdown** (top right) — adjust how much each severity tier counts toward the blended score.
+- **Settings dropdown** (top right) — a strictness dial controlling how literally findings must match statutory wording (e.g. whether "Do Not Sell My Information" satisfies a statute saying "…My Personal Information"), plus saved-data controls.
 - **Docket sidebar** — saved sites with scan history; re-scans/re-audits are triggered manually, never automatically.
-- **Your manual work persists** — overrides, attestations, and notes are saved locally and restored on load, so re-auditing the same product later doesn't mean re-entering everything. Export/import from the Settings dropdown.
+- **Your manual work persists** — overrides, attestations, and notes are saved locally and restored on load, so re-reviewing the same product later doesn't mean re-entering everything. Export/import from the Settings dropdown.
+- **Exportable audit log** — a printable record of every run, each requirement's status and where it came from, every attestation, and every override with its stated reason.
 
 See [`SPEC.md`](./SPEC.md) for the full spec and [`CHANGELOG.md`](./CHANGELOG.md) for version history.
 
@@ -33,7 +34,7 @@ This is a front-end prototype meant to demonstrate the product concept and inter
 |---|---|
 | UI/UX, navigation, scoring logic, scan flow | Fully functional |
 | Website crawling / tracker detection | Simulated (deterministic per-domain mock data) |
-| **Source audit of an uploaded codebase** | **Real** — pattern-matching against the actual files you upload, entirely in-browser, with real file/line evidence citations. Heuristic, not a legal determination: it finds evidence of implementation, not proof of end-to-end correctness. |
+| Source audit of an uploaded codebase | **Retired in v0.8.0.** Was real (pattern-matching your actual files in-browser, with file/line citations). Existing entries keep their real evidence; no new ones can be created, so **new entries are once again entirely simulated**. |
 | GDPR / CCPA requirement text | Real regulatory citations and requirements |
 | Self-attested checklist review (status, confidence, follow-up questions) | Simulated — rule-based keyword matching, not a live model call (see `SPEC.md` Phase 1) |
 | Legislation database | Static seed data, illustrative |
@@ -43,7 +44,7 @@ This is a front-end prototype meant to demonstrate the product concept and inter
 
 ## Tech
 
-HTML shell + CSS in `regulatory-ledger.html`, loading seven plain-script `js/*.js` files (data, storage, scoring, reviewer, codeaudit, render, app) — vanilla JS, no framework, no build step. Fonts: Fraunces (display), IBM Plex Sans (body), IBM Plex Mono (data/citations), loaded from Google Fonts CDN.
+HTML shell + CSS in `regulatory-ledger.html`, loading six plain-script `js/*.js` files (data, storage, scoring, reviewer, render, app; `codeaudit.js` is retained in-tree but no longer loaded) — vanilla JS, no framework, no build step. Fonts: Fraunces (display), IBM Plex Sans (body), IBM Plex Mono (data/citations), loaded from Google Fonts CDN.
 
 ## Roadmap
 

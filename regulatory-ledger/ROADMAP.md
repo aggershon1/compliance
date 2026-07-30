@@ -6,78 +6,38 @@ This is the forward-looking plan. For what's built today see [`CHANGELOG.md`](./
 
 ---
 
-## Where we actually are (through v0.7.0)
+## Where we actually are (through v0.8.0)
 
 The original roadmap framed the next milestone as "make the scan real" via a headless crawler. That framing is now out of date: the **source-audit track** (v0.6.0) made the harder half real first, and it turned out to be a better answer for the primary user — a PM who owns compliance for their own product and was drowning in manual overrides for everything behind a login wall.
 
 **Shipped:**
 
 - **Dual-track compliance model** — scanned (logged-out) + self-attested (logged-in), rolling into one blended score per regulation, with unattested items counting as zero credit.
-- **Source audit (v0.6.0)** — upload a codebase and it's pattern-matched against every requirement entirely in-browser, citing real file/line/snippet evidence. Auto-attests checklist items that have solid evidence; leaves the rest to the normal attestation flow. **The only non-simulated analysis in the product.**
+- **Source audit (v0.6.0, ingestion retired v0.8.0)** — pattern-matched an uploaded codebase against every requirement entirely in-browser, citing real file/line/snippet evidence. The browser upload path has since been retired (item below); entries audited before then remain viewable as historical records, and the engine is preserved in `js/codeaudit.js` (no longer loaded) for a future ingestion path.
 - **Persistence (v0.7.0, in review)** — overrides, attestations, drafts, and settings survive across sessions; re-auditing an existing entry preserves manual work and refreshes only audit-derived results. Includes stale-override detection and JSON export/import.
 - Country-based scoping with per-country + overall grading; manual country entry.
 - Final grade gated on self-attestation completeness.
 - Risk & precedent merged inline into Compliance Results, citing **real, publicly reported enforcement actions**, with an aggregate exposure range.
-- Recommendations tab, upcoming-legislation tab (static seed data), Privacy Trust score, competitor comparison, severity weighting, PDF report via print dialog.
+- **Strictness dial (v0.8.0)** — one Settings control governing how literally a finding must match statutory wording, replacing the severity-weight slider. Changing it re-evaluates existing description-based attestations; overrides are never touched.
+- **Exportable audit log (v0.8.0)** — printable/PDF record of every run, each requirement's status and provenance, every attestation, and every override with its stated reason.
+- **Repo uploading retired (v0.8.0)** — the browser folder-upload entry path is gone; see the open question under Later.
+- Recommendations tab, upcoming-legislation tab (static seed data), Privacy Trust score, competitor comparison, PDF summary report via print dialog.
 
-**Still simulated:** website crawling/tracker detection, the self-attested checklist reviewer (keyword heuristic, not a model call), the legislation dataset, and competitor scores. See README's real-vs-mocked table.
-
----
-
-## Next — no backend required
-
-These are buildable within the current static, no-build-step architecture.
-
-### 1. Replace the severity-weight slider with a **strictness dial**
-
-Today's Settings slider weights severity tiers (high/med/low). Repurpose it into a control for **how literally a finding must match the letter of the law** — the axis that actually causes disagreement in practice.
-
-The worked example: a footer link reading *"Do Not Sell My Information"* against a statute that says *"Do Not Sell My Personal Information."* At the strict end that's a finding; at the lenient end it's a pass. Today that judgment is hardcoded — the fuzzy matcher added in v0.4.0 uses a fixed 60% word-overlap threshold, and the source-audit rules use fixed regexes. This exposes it.
-
-- Strict end: statutory phrasing, near-exact. Surfaces technical non-compliance a regulator could cite.
-- Lenient end: semantically equivalent language passes. Reflects how enforcement usually behaves in practice.
-- Applies to both the checklist reviewer's matching and the source-audit rule thresholds, so one dial governs the whole product's posture.
-
-*Open question:* does severity weighting survive alongside this as a second control, or is it retired? Two sliders risk muddling "how bad is this" with "how literally do we read it" — they're genuinely different questions, and folding them together would be a mistake.
-
-*Spec impact:* changes the scoring approach documented in `SPEC.md`.
-
-### 2. Exportable audit log (PDF)
-
-A timestamped, human-readable record of everything that produced the current posture: every scan/audit run, every status change, who attested what and when, every override with its explanation, and the file/line evidence behind each source-audit finding.
-
-This is the artifact legal and auditors actually ask for, and it's mostly a formatter — the underlying data already exists and v0.7.0 added the export plumbing. Ships as PDF (the existing print-dialog path) alongside the JSON export.
-
-Previously filed under "moonshot" as a legal-grade audit trail; that was a misjudgment of effort now that the evidence and history are already captured.
-
-### 3. Retire repo uploading; decide what replaces it
-
-Asking a company to upload its source into a browser tool doesn't survive contact with most security review processes, even though the analysis itself never leaves the machine. Remove the folder-upload entry path.
-
-This is a real trade-off, not a cleanup: the source-audit track is currently the only genuinely real analysis in the product, and the only thing that auto-attests behind-login requirements. Removing it without a replacement returns the manual-attestation burden it was built to solve.
-
-*Open question — what replaces the ingestion path:*
-- A read-only GitHub App with scoped repo access (server-side clone; requires a backend).
-- A local CLI that runs the same rules and emits only findings, never code — keeps source on the user's machine while removing the upload gesture.
-- Retire the capability entirely and accept the heavier manual attestation flow.
-
-The engine (`js/codeaudit.js` + `CODE_AUDIT_RULES`) is worth preserving in any of these — it's the ingestion path that's in question, not the analysis.
-
-*Spec impact:* removes or rewrites `SPEC.md`'s "Track 3 — Source audit" section.
+**Still simulated:** website crawling/tracker detection, the self-attested checklist reviewer (keyword heuristic, not a model call), the legislation dataset, and competitor scores. With the source-audit ingestion path retired, **new entries are once again entirely simulated** — restoring a real analysis path is the open question left in its wake. See README's real-vs-mocked table.
 
 ---
 
-## Then — requires a backend
+## Next — requires a backend
 
-Both need server-side infrastructure, which is the real architectural threshold for this project (see `SPEC.md` Phase 1: a static file can't hold an API key or run scheduled jobs).
+The three no-backend items shipped in v0.8.0. Everything remaining needs server-side infrastructure, which is now the real architectural threshold for this project (see `SPEC.md` Phase 1: a static file can't hold an API key or run scheduled jobs).
 
-### 4. Legislation alerts
+### 1. Legislation alerts
 
 Notify when a bill relevant to your jurisdictions lands on the docket, changes status, or is approaching its effective date — so compliance work can start before the deadline rather than after.
 
 Requires replacing the static `BILLS` seed with a real ingestion pipeline (state legislature feeds, EU Official Journal, regulator enforcement pages), plus accounts and a delivery channel (email/Slack/in-app). Filtering by a site's selected countries already exists and would drive relevance.
 
-### 5. Remediation guidance — recommendations **and** proposal review
+### 2. Remediation guidance — recommendations **and** proposal review
 
 Two directions, both available, neither gating the other:
 
@@ -102,6 +62,7 @@ Requires a real model call, hence a backend to hold the API key. The same infras
 
 ## Later
 
+- **Restore a real analysis path.** Retiring the browser upload closed the security-review problem but reopened the one it solved: behind-login requirements are back to manual attestation, and nothing in the product is real analysis again. The candidates remain a read-only GitHub App (server-side clone) or a local CLI that emits findings without moving code. `js/codeaudit.js` and its rules are preserved in-tree for whichever wins.
 - **Broader regulatory coverage** — UK GDPR, LGPD (Brazil), PIPEDA (Canada), more US state laws (Colorado, Virginia, Connecticut), and sector rules (HIPAA, COPPA, GLBA). The regulation picker and requirement data model were built to extend this way.
 - **"What changed since last audit" diff** — with multiple runs now stored per entry, surface regressions between runs rather than only point-in-time posture. Turns the tool from an audit into ongoing monitoring.
 - **Real crawler for the logged-out surface** — deliberately deprioritized. It only sees the public pages, which was never the hard part; the behind-login gap mattered more and was addressed differently.

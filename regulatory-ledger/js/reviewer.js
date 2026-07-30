@@ -18,11 +18,19 @@ function significantWords(phrase){
   return phrase.toLowerCase().split(/[^a-z0-9]+/).filter(w => w && !REVIEW_STOPWORDS.has(w));
 }
 function wordStem(w){ return w.length > 5 ? w.slice(0, 5) : w; }
+
+/* The paraphrase tolerance is set by the Settings strictness dial rather
+   than hardcoded — at "Letter of the law" only the exact wording counts. */
+function strictnessSetting(){
+  return STRICTNESS_LEVELS[state.strictness] || STRICTNESS_LEVELS[DEFAULT_STRICTNESS];
+}
 function fuzzyPhraseMatch(normalizedText, phrase){
+  const {threshold, exactOnly} = strictnessSetting();
+  if(exactOnly) return false;
   const words = significantWords(phrase);
   if(words.length === 0) return false;
   const hits = words.filter(w => normalizedText.includes(wordStem(w))).length;
-  return (hits / words.length) >= 0.6;
+  return (hits / words.length) >= threshold;
 }
 function countMatches(text, words){
   const t = text.toLowerCase();
