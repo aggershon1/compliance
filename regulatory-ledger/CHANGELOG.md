@@ -2,9 +2,18 @@
 
 All notable changes to this prototype are logged here.
 
-## [Unreleased #2] — Settings dropdown, scanned/self-attested split with grade gating, Risk & Precedent merged in, real enforcement cases
+## [0.5.1] — Manual competitor entry, auto-collapse passing items
 
-**Not yet merged to main — stacked on top of the still-open Unreleased batch below, pushed for review on its own branch.**
+### Added
+- **"vs. Competitors" tab now takes real competitor names.** An "Add a real competitor" box (same pattern as manual country entry) lets you type in who this site actually competes with; entries show as removable chips and replace the generic "Competitor A/B/C" placeholders. "Sector median" always stays as a fixed benchmark line regardless.
+- **Passing items auto-collapse.** On Compliance Results, any scanned or self-attested item currently at "Pass" starts collapsed to just its status line, so what's actually visible by default is what still needs attention — Fail/Partial/Pending items, and anything not yet attested. A manual toggle always overrides the default in either direction; Collapse all/Expand all still works as a blanket override too.
+
+### Notes
+- Closes the open item from 0.5.0: naming real competitors needed the actual names, which are genuinely site-specific and couldn't be inferred — now the user supplies them directly instead of via chat.
+- Scores next to a real name are still simulated (`competitorScores()` — no real crawl of competitor sites exists), and every non-"this site" row now carries an explicit "(simulated)" tag next to its number, not just an intro-paragraph disclaimer, so it reads clearly even if someone skips the intro text.
+- Auto-collapse is tri-state (`isCollapsed()` in render.js): an explicit prior click always wins over the status-based default, so nothing you manually expand snaps back shut just because it's Pass.
+
+## [0.5.0] — Settings dropdown, scanned/self-attested split with grade gating, Risk & Precedent merged in, real enforcement cases
 
 ### Added
 - **Settings moved to a top-right dropdown** in the masthead (⚙ Settings), out of the tab row. Still just the severity-weighting sliders for now.
@@ -21,9 +30,7 @@ All notable changes to this prototype are logged here.
 - **The "vs. Competitors" tab still uses generic placeholder labels** ("Competitor A/B/C"). Naming real competitors requires knowing which real companies apply to whatever site is being scanned — that's genuinely site-specific and was pending user input as of this entry.
 - Gating only affects the *display* of the final grade (stamp + docket chip); `blendedScore()` itself is unchanged and still returns a number for every other consumer (Recommendations sorting, Print report, exposure calculations, etc.) — those intentionally keep working off the underlying number so nothing downstream breaks while a grade is "pending."
 
-## [Unreleased] — Country model rework, evidence hover, competitor benchmark, settings, fuzzy review matching
-
-**Not yet merged to main — pushed for review on a feature branch.**
+## [0.4.0] — Country model rework, evidence hover, competitor benchmark, settings, fuzzy review matching
 
 ### Added
 - **Countries replace the old Global/US/EU/CH variant picker.** The New Scan form now asks which countries the scan covers (multi-select from the existing country list, plus free-text entry for a country not on it), instead of a single regional-variant chip. The old "Global / default" catch-all option is gone entirely.

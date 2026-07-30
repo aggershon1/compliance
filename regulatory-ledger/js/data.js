@@ -310,10 +310,15 @@ const TRUST_CATS = [
            weak:'No retention period is stated anywhere in the policy.'}},
 ];
 
-/* Illustrative-only comparison set for the "vs. Competitors" tab — deliberately
-   generic labels, not real companies, since we have no real data to compare
-   against. See CHANGELOG for why this exists ahead of SPEC.md's Phase 4 item. */
-const COMPETITOR_LABELS = ['Competitor A', 'Competitor B', 'Competitor C', 'Sector median'];
+/* Fallback comparison set for the "vs. Competitors" tab, used until the user
+   types in real competitor names for the site being reviewed (see the manual
+   add box on that tab) — generic labels, not real companies, since without
+   that input we have no idea who a given scanned site actually competes
+   with. "Sector median" is always shown as a benchmark line, real names or
+   not. See CHANGELOG for why this tab exists ahead of SPEC.md's Phase 4 item;
+   scores are simulated either way — see the disclaimer on that tab. */
+const GENERIC_COMPETITOR_LABELS = ['Competitor A', 'Competitor B', 'Competitor C'];
+const SECTOR_MEDIAN_LABEL = 'Sector median';
 
 const DEFAULT_SEV_WEIGHT = {high:3, med:2, low:1};
 const SEV_LABEL = {high:'High severity', med:'Medium severity', low:'Low severity'};

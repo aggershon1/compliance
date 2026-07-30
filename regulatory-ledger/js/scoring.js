@@ -260,11 +260,19 @@ function exposureSummary(site, scan){
 }
 
 /* ============================================================
-   COMPETITOR BENCHMARK (illustrative — see data.js note on COMPETITOR_LABELS)
+   COMPETITOR BENCHMARK (illustrative — see data.js note on GENERIC_COMPETITOR_LABELS)
    ============================================================ */
-function competitorScores(domain, regKey){
-  return COMPETITOR_LABELS.map(label=>{
+/* manualNames: real competitor names the user typed in on the Competitors
+   tab (site.manualCompetitors), if any. Falls back to the generic
+   placeholders when empty. Scores are simulated either way — a real name
+   here doesn't mean a real crawl happened for that company. */
+function competitorScores(domain, regKey, manualNames){
+  const names = (manualNames && manualNames.length) ? manualNames : GENERIC_COMPETITOR_LABELS;
+  const rows = names.map(label=>{
     const r = seededRandom(domain+'::'+regKey+'::competitor::'+label);
     return {label, score: Math.round(45 + r*50)};
   });
+  const medianR = seededRandom(domain+'::'+regKey+'::competitor::'+SECTOR_MEDIAN_LABEL);
+  rows.push({label: SECTOR_MEDIAN_LABEL, score: Math.round(45 + medianR*50)});
+  return rows;
 }

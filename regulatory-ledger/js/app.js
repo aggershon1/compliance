@@ -25,6 +25,7 @@ const state = {
   overrideHistory: {},
   collapsedItems: {},
   manualCountryInput: {},       // per-site draft text for the post-scan "add a country" box
+  manualCompetitorInput: {},    // per-site draft text for the "add a competitor" box
   sevWeights: {...DEFAULT_SEV_WEIGHT},
   settingsMenuOpen: false,       // top-right Settings dropdown (weighting only, for now)
 };
@@ -207,6 +208,29 @@ function attachHandlers(site){
     });
   });
 
+  const competitorManualInput = document.getElementById('competitor-manual-input');
+  if(competitorManualInput) competitorManualInput.addEventListener('input', (e)=>{
+    if(!site) return;
+    state.manualCompetitorInput[site.id] = e.target.value;
+  });
+  const competitorManualAdd = document.getElementById('btn-competitor-manual-add');
+  if(competitorManualAdd) competitorManualAdd.addEventListener('click', ()=>{
+    if(!site) return;
+    const name = (state.manualCompetitorInput[site.id]||'').trim();
+    if(!name) return;
+    site.manualCompetitors = site.manualCompetitors || [];
+    site.manualCompetitors.push({name});
+    state.manualCompetitorInput[site.id] = '';
+    render();
+  });
+  document.querySelectorAll('[data-remove-manual-competitor]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      if(!site) return;
+      site.manualCompetitors.splice(Number(el.getAttribute('data-remove-manual-competitor')), 1);
+      render();
+    });
+  });
+
   document.querySelectorAll('.tab-btn').forEach(el=>{
     el.addEventListener('click', ()=>{ state.activeTab = el.getAttribute('data-tab'); render(); });
   });
@@ -238,7 +262,8 @@ function attachHandlers(site){
   document.querySelectorAll('[data-collapse-toggle]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const id = el.getAttribute('data-collapse-toggle');
-      state.collapsedItems[id] = !state.collapsedItems[id];
+      const currentlyCollapsed = el.getAttribute('data-currently-collapsed') === 'true';
+      state.collapsedItems[id] = !currentlyCollapsed;
       render();
     });
   });
@@ -416,6 +441,7 @@ function finishScan(domain, existingSite){
       manualRegs: defaultManualRegsFromCountries(countryCodes),
       selectedCountries: [...countryCodes],
       manualCountries: manualCountries.map(m=>({...m})),
+      manualCompetitors: [],
       scans: [scan],
       checklistState: {},
       overrides: {},

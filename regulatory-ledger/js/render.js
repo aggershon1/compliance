@@ -208,6 +208,15 @@ function renderScanningView(){
   `;
 }
 
+/* Tri-state collapse: an explicit prior toggle (true/false) always wins;
+   with no override yet, Pass items default collapsed and everything else
+   (Fail/Partial/Pending/NA) defaults expanded, so failed and not-yet-attested
+   items are what you see without digging. */
+function isCollapsed(id, status){
+  const explicit = state.collapsedItems[id];
+  return explicit !== undefined ? explicit : status==='Pass';
+}
+
 function citeHover(item){
   return `<span class="cite-hover"><span class="req-code">${item.code}</span><span class="cite-tooltip"><div class="ct-title">${item.articleTitle}</div>${item.articleText}</span></span>`;
 }
@@ -269,14 +278,14 @@ function renderComplianceTab(site, scan){
       const raw = rawStatus(site, scan, regKey, req, 'scanned');
       const eff = itemEffectiveStatus(site, scan, regKey, req, 'scanned');
       const stClass = eff.toLowerCase();
-      const collapsed = !!state.collapsedItems[req.id];
+      const collapsed = isCollapsed(req.id, eff);
       let note = '';
       if(eff==='Fail') note = `<div class="req-note fail">${req.hints.fail}${evidenceHover(req, eff)}</div>${renderPrecedentInline(req)}`;
       else if(eff==='Partial') note = `<div class="req-note partial">${req.hints.partial}${evidenceHover(req, eff)}</div>${renderPrecedentInline(req)}`;
       return `
         <div class="ledger-row">
           <div>
-            <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button><span class="source-tag">Scanned</span>${citeHover(req)} ${req.text}</div>
+            <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button><span class="source-tag">Scanned</span>${citeHover(req)} ${req.text}</div>
             ${!collapsed ? `
               <div class="layman-text">${req.layman}</div>
               ${note}
@@ -373,7 +382,7 @@ function renderChecklistItem(site, scan, regKey, item){
   const checked = !!(st && st.checked);
   const raw = rawStatus(site, scan, regKey, item, 'attested');
   const eff = itemEffectiveStatus(site, scan, regKey, item, 'attested');
-  const collapsed = !!state.collapsedItems[item.id];
+  const collapsed = isCollapsed(item.id, eff);
 
   let statusBadge = `<span class="status-badge ${eff.toLowerCase()}">${eff}</span>`;
 
@@ -431,7 +440,7 @@ function renderChecklistItem(site, scan, regKey, item){
       <div class="checklist-head-row">
         <div class="checklist-check-row">
           <input type="checkbox" id="chk-${item.id}" data-check-for="${item.id}" ${checked?'checked':''}>
-          <button type="button" class="collapse-toggle" data-collapse-toggle="${item.id}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button>
+          <button type="button" class="collapse-toggle" data-collapse-toggle="${item.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button>
           <div>
             <label class="checklist-label" for="chk-${item.id}"><span class="source-tag attested">Self-attested</span>${citeHover(item)} ${item.text}</label>
             ${!collapsed ? `
@@ -551,31 +560,47 @@ function renderTrustTab(scan){
   `;
 }
 
+function renderCompetitorManualEntry(site){
+  const manualChips = (site.manualCompetitors||[]).map((m,i)=>
+    `<span class="manual-country-chip">${m.name} <button type="button" class="chip-remove" data-remove-manual-competitor="${i}" aria-label="Remove ${m.name}">×</button></span>`
+  ).join('');
+  return `
+    <div class="add-country-row">
+      <input type="text" id="competitor-manual-input" placeholder="Add a real competitor to compare against…" value="${state.manualCompetitorInput[site.id]||''}" autocomplete="off">
+      <button type="button" id="btn-competitor-manual-add" class="file-btn">+ Add</button>
+    </div>
+    ${manualChips ? `<div class="manual-country-chips">${manualChips}</div>` : ''}
+  `;
+}
+
 function renderCompetitorsTab(site, scan){
   const eff = effectiveRegs(site);
   const regs = []; if(eff.GDPR) regs.push('GDPR'); if(eff.CCPA) regs.push('CCPA');
-  if(regs.length===0) return `<p class="section-note">No regulation selected — toggle GDPR or CCPA/CPRA above to see a comparison.</p>`;
+  const manualEntry = renderCompetitorManualEntry(site);
+  if(regs.length===0) return `${manualEntry}<p class="section-note">No regulation selected — toggle GDPR or CCPA/CPRA above to see a comparison.</p>`;
 
+  const manualNames = (site.manualCompetitors||[]).map(m=>m.name);
   const blocksHtml = regs.map(regKey=>{
     const siteScore = blendedScore(site, scan, regKey);
     const rows = [{label: `${site.domain} (this site)`, score: siteScore, isSite:true}]
-      .concat(competitorScores(site.domain, regKey).map(r=>({...r, isSite:false})));
+      .concat(competitorScores(site.domain, regKey, manualNames).map(r=>({...r, isSite:false})));
     rows.sort((a,b)=>b.score-a.score);
     const rowsHtml = rows.map(r=>{
       const tier = r.score>=80?'good':r.score>=55?'moderate':'weak';
       const color = tier==='good'?'var(--verdigris)':tier==='moderate'?'var(--amber)':'var(--redline)';
       return `
         <div class="trust-cat">
-          <div class="trust-cat-head"><div class="trust-cat-name">${r.isSite?`<b>${r.label}</b>`:r.label}</div><div class="trust-cat-score mono">${r.score}/100</div></div>
+          <div class="trust-cat-head"><div class="trust-cat-name">${r.isSite?`<b>${r.label}</b>`:r.label}</div><div class="trust-cat-score mono">${r.score}/100${r.isSite?'':' <span class="sim-tag">(simulated)</span>'}</div></div>
           <div class="bar-track"><div class="bar-fill" style="width:${r.score}%; background:${color};"></div></div>
         </div>
       `;
     }).join('');
-    return `<div class="reg-block"><h3 class="disp">${regKey}</h3><div class="reg-sub">Illustrative comparison — not real companies or real data</div>${rowsHtml}</div>`;
+    return `<div class="reg-block"><h3 class="disp">${regKey}</h3><div class="reg-sub">${manualNames.length ? 'Real competitor names, simulated scores' : 'Generic placeholders — add real competitors above'}</div>${rowsHtml}</div>`;
   }).join('');
 
   return `
-    <p class="rec-intro">A rough, directional comparison against generic industry benchmarks, simulated for this prototype — not based on real companies or actual scans of them. Numbers are consistent for this domain across visits but aren't derived from any real competitive data.</p>
+    <p class="rec-intro">A rough, directional comparison — every score except "${site.domain} (this site)" is simulated for this prototype, including for any real company names you've added above. There's no real crawl of competitor sites in this tool yet, so a real name doesn't mean a real assessment.</p>
+    ${manualEntry}
     ${blocksHtml}
   `;
 }
