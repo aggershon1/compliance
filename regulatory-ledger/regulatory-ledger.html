@@ -74,6 +74,13 @@
   }
   .settings-dropdown-title{ font-family:'Fraunces', serif; font-weight:600; font-size:15px; margin-bottom:6px; }
   .settings-dropdown-note{ font-size:12px; color:var(--ink-soft); margin:0 0 12px 0; }
+  .settings-section-divider{ border-top:1px solid var(--line-strong); margin:16px 0 14px 0; }
+  .settings-data-row{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .settings-danger{ color:var(--redline) !important; }
+  .settings-import-msg{ font-size:11.5px; color:var(--ink-soft); margin-top:9px; }
+  .storage-warning{ font-size:11.5px; color:var(--amber); background:rgba(169,116,41,0.08); border-left:2px solid var(--amber); padding:7px 9px; margin-bottom:10px; }
+  .override-basis-changed{ font-size:12px; color:var(--amber); margin-top:7px; }
+  label.rescan-btn{ display:inline-block; }
 
   .docket{ border-right:1px solid var(--line-strong); padding:22px 0 0 0; display:flex; flex-direction:column; }
   .docket-head{ display:flex; align-items:center; justify-content:space-between; padding:0 22px 15px 22px; border-bottom:1px solid var(--line); margin-bottom:4px; }
@@ -428,6 +435,7 @@
 <div id="print-report"></div>
 
 <script src="js/data.js"></script>
+<script src="js/storage.js"></script>
 <script src="js/scoring.js"></script>
 <script src="js/reviewer.js"></script>
 <script src="js/codeaudit.js"></script>
