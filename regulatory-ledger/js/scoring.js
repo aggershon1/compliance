@@ -206,6 +206,60 @@ function regionsForSite(site){
 }
 
 /* ============================================================
+   SELF-ATTESTED GATING (Compliance Results request #4)
+   ============================================================ */
+/* A checklist item counts as "resolved" once it's either been finalized
+   through the normal describe→review flow, or manually overridden — an
+   override is an authoritative status too, so it shouldn't leave the final
+   grade stuck pending. Overriding a scanned (automated) item never affects
+   this gate; only the self-attested items do, per the request. */
+function isChecklistItemResolved(site, item){
+  if(site.overrides[item.id]) return true;
+  const st = site.checklistState[item.id];
+  return !!(st && st.finalized);
+}
+function allSelfAttestedResolved(site, regKey){
+  const {checklist} = regDefs(regKey);
+  return checklist.every(item => isChecklistItemResolved(site, item));
+}
+
+/* ============================================================
+   RISK EXPOSURE (merged from the old standalone Risk & Precedent tab)
+   ============================================================ */
+function formatMoney(n){
+  if(n>=1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
+  if(n>=1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+  if(n>=1e3) return (n/1e3).toFixed(0) + 'K';
+  return String(n);
+}
+const CURRENCY_SYMBOL = {EUR:'€', GBP:'£', USD:'$'};
+
+/* Aggregates the real enforcement cases (FINES) matching the site's current
+   gaps into a min–max range per currency, so the Compliance Results header
+   can show "potential exposure" without mixing EUR/GBP/USD together. */
+function exposureSummary(site, scan){
+  const eff = effectiveRegs(site);
+  const regs = []; if(eff.GDPR) regs.push('GDPR'); if(eff.CCPA) regs.push('CCPA');
+  const matched = [];
+  regs.forEach(regKey=>{
+    gapItems(site, scan, regKey).forEach(g=>{
+      const fine = FINES[g.item.id];
+      if(fine) matched.push(fine);
+    });
+  });
+  if(matched.length===0) return null;
+  const byCurrency = {};
+  matched.forEach(f=>{
+    (byCurrency[f.currency] = byCurrency[f.currency] || []).push(f.amount);
+  });
+  const ranges = Object.entries(byCurrency).map(([currency, amounts])=>({
+    currency, symbol: CURRENCY_SYMBOL[currency] || '',
+    min: Math.min(...amounts), max: Math.max(...amounts),
+  }));
+  return { ranges, caseCount: matched.length };
+}
+
+/* ============================================================
    COMPETITOR BENCHMARK (illustrative — see data.js note on COMPETITOR_LABELS)
    ============================================================ */
 function competitorScores(domain, regKey){
