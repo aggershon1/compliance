@@ -35,6 +35,8 @@ Self-attested answers go stale — the feature described might get changed or re
 
 ## Track 3 — Source audit (upload a codebase) *(added v0.6.0)*
 
+> **Under review:** [`ROADMAP.md`](./ROADMAP.md) item 3 plans to retire the folder-upload entry path (source code in a browser tool is hard to get through security review), with the replacement ingestion path — GitHub App, local CLI, or none — still undecided. The analysis engine is expected to survive; the upload gesture may not. This section describes the capability as currently built.
+
 For teams that own the product being reviewed (e.g. a PM responsible for compliance at their own company), there's a third entry path: instead of a URL, upload the product's repo folder. The app reads the files **locally in the browser** — nothing is transmitted anywhere — and pattern-matches them against every requirement in both tracks, citing real evidence (file, line, snippet) for each verdict.
 
 Rationale: the behind-login requirements a crawler can't see (Track 2's whole reason for existing) *are* visible in source code. A repo that contains a self-serve account-deletion flow is direct evidence for the erasure requirement — better evidence than a typed description. This shrinks the manual-attestation burden instead of replacing the model:
@@ -78,6 +80,8 @@ Self-serve right to know/access · Self-serve right to delete · Self-serve righ
 ---
 
 ## Roadmap
+
+> **Superseded.** This phase list predates v0.6.0 (source audit) and v0.7.0 (persistence), and no longer reflects the plan — notably, the real crawler in Phase 1 has been deliberately deprioritized. See [`ROADMAP.md`](./ROADMAP.md) for the current direction. Kept here for historical context.
 
 ### Phase 0 — Current prototype (this build)
 Front-end only, fully interactive, all data simulated: deterministic mock scan results, rule-based (non-LLM) simulated review of checklist submissions, local browser state only (resets on reload). Purpose: validate the product concept and interaction model before investing in real infrastructure.
