@@ -31,7 +31,10 @@ const state = {
   manualCountryInput: {},       // per-site draft text for the post-scan "add a country" box
   manualCompetitorInput: {},    // per-site draft text for the "add a competitor" box
   sevWeights: {...DEFAULT_SEV_WEIGHT},
-  settingsMenuOpen: false,       // top-right Settings dropdown (weighting only, for now)
+  settingsMenuOpen: false,       // top-right Settings dropdown (weighting + stored data)
+  storageWarning: null,          // set by storage.js when a save can't fully succeed
+  lastLoadedAt: null,            // timestamp of the restored session, if any
+  importMessage: null,           // result banner after an import attempt
 };
 
 /* Selected folder files for a pending source audit. Deliberately a module
@@ -266,7 +269,46 @@ function attachHandlers(site){
   });
 
   const settingsToggle = document.getElementById('btn-settings-toggle');
-  if(settingsToggle) settingsToggle.addEventListener('click', ()=>{ state.settingsMenuOpen = !state.settingsMenuOpen; render(); });
+  if(settingsToggle) settingsToggle.addEventListener('click', ()=>{
+    state.settingsMenuOpen = !state.settingsMenuOpen;
+    state.importMessage = null;
+    render();
+  });
+
+  const exportDataBtn = document.getElementById('btn-export-data');
+  if(exportDataBtn) exportDataBtn.addEventListener('click', ()=>{ exportStateFile(); });
+
+  const importDataInput = document.getElementById('import-data-input');
+  if(importDataInput) importDataInput.addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const result = await importStateFile(file);
+    state.importMessage = result.ok
+      ? `Imported ${result.siteCount} entr${result.siteCount===1?'y':'ies'}.`
+      : result.error;
+    render();
+  });
+
+  const clearDataBtn = document.getElementById('btn-clear-data');
+  if(clearDataBtn) clearDataBtn.addEventListener('click', ()=>{
+    if(!window.confirm('Delete all saved entries, overrides, and attestations from this browser? This cannot be undone — export first if you want a copy.')) return;
+    clearPersistedState();
+    state.sites = [];
+    state.selectedSiteId = null;
+    state.drafts = {};
+    state.overrideHistory = {};
+    state.nextDocketNum = 1;
+    state.settingsMenuOpen = false;
+    state.importMessage = null;
+    render();
+  });
+
+  const reauditInput = document.getElementById('reaudit-folder-input');
+  if(reauditInput) reauditInput.addEventListener('change', (e)=>{
+    if(!site) return;
+    const files = Array.from(e.target.files || []);
+    if(files.length) startCodeAudit(files, site);
+  });
 
   const regionFilter = document.getElementById('leg-region-filter');
   if(regionFilter) regionFilter.addEventListener('change', (e)=>{ state.legFilterRegion = e.target.value; render(); });
@@ -488,11 +530,11 @@ function finishScan(domain, existingSite){
 /* ============================================================
    SOURCE AUDIT LIFECYCLE (Track 3 — real analysis, NOT simulated)
    ============================================================ */
-async function startCodeAudit(files){
-  const rootName = codeAuditRootName(files);
+async function startCodeAudit(files, existingSite){
+  const rootName = existingSite ? existingSite.domain : codeAuditRootName(files);
   state.scanning = true;
   state.scanKind = 'code';
-  state.scanningExistingSiteId = null;
+  state.scanningExistingSiteId = existingSite ? existingSite.id : null;
   state.scanTargetDomain = rootName;
   state.codeAuditProgress = {read:0, total:0};
   state.showNewScanForm = false;
@@ -505,69 +547,99 @@ async function startCodeAudit(files){
 
   if(audit.analyzedFiles === 0){
     state.scanning = false;
+    state.scanningExistingSiteId = null;
     state.codeAuditProgress = null;
-    state.showNewScanForm = true;
-    state.newScanError = 'No readable source files found in that folder — check that you selected the repo root, not a build output or empty directory.';
+    const msg = 'No readable source files found in that folder — check that you selected the repo root, not a build output or empty directory.';
+    if(existingSite){ state.reauditError = msg; }
+    else { state.showNewScanForm = true; state.newScanError = msg; }
     render();
     return;
   }
-  finishCodeAudit(rootName, audit);
+  finishCodeAudit(rootName, audit, existingSite);
 }
 
-function finishCodeAudit(rootName, audit){
-  const countryCodes = state.newScanCountries;
-  const manualCountries = state.newScanManualCountries;
-
-  // Scanned-track statuses come straight from the audit verdicts — every
-  // scanned rule defines an `absent` status, so this is always populated.
+/* Build the scanned-track statuses + code-derived attestations from a fresh
+   audit. Shared by first-time audits and re-audits. */
+function codeAuditScanRecord(audit){
   const scannedGDPR = {}; GDPR_SCANNED.forEach(r=>{ scannedGDPR[r.id] = audit.results[r.id].status; });
   const scannedCCPA = {}; CCPA_SCANNED.forEach(r=>{ scannedCCPA[r.id] = audit.results[r.id].status; });
-
-  const scan = {
+  return {
     timestamp: audit.analyzedAt,
     scanned: {GDPR: scannedGDPR, CCPA: scannedCCPA},
     trust: null,   // Privacy Trust measures the public-facing site, not source — see renderTrustTab
     source: 'code',
   };
+}
+function codeAuditAttestation(audit, itemId){
+  const r = audit.results[itemId];
+  if(!r || !r.found) return null;
+  return {
+    checked:true, finalized:true, needsFollowUp:false,
+    status:r.status, confidence:r.confidence, rationale:r.rationale,
+    attestedAt: audit.analyzedAt, fromCode:true,
+  };
+}
 
-  // Checklist items with real evidence are auto-attested from source; the
-  // rest stay unattested so the normal self-attestation flow + grade gating
-  // still apply — the audit narrows the manual work, it doesn't skip the gate.
-  const checklistState = {};
-  [...GDPR_CHECKLIST, ...CCPA_CHECKLIST].forEach(item=>{
-    const r = audit.results[item.id];
-    if(r && r.found){
-      checklistState[item.id] = {
-        checked:true, finalized:true, needsFollowUp:false,
-        status:r.status, confidence:r.confidence, rationale:r.rationale,
-        attestedAt: audit.analyzedAt, fromCode:true,
-      };
-    }
-  });
+function finishCodeAudit(rootName, audit, existingSite){
+  const scan = codeAuditScanRecord(audit);
 
-  const id = 'site-' + Date.now();
-  const docketNum = state.nextDocketNum++;
-  state.sites.push({
-    id, domain: rootName, docketNum,
-    kind: 'code',
-    addedAt: Date.now(),
-    manualRegs: defaultManualRegsFromCountries(countryCodes),
-    selectedCountries: [...countryCodes],
-    manualCountries: manualCountries.map(m=>({...m})),
-    manualCompetitors: [],
-    scans: [scan],
-    checklistState,
-    overrides: {},
-    codeEvidence: audit.results,
-    codeStats: {totalFiles: audit.totalFiles, analyzedFiles: audit.analyzedFiles, skippedFiles: audit.skippedFiles},
-  });
-  state.selectedSiteId = id;
+  if(existingSite){
+    /* Re-audit: the whole point is that manual work survives. Overrides are
+       left completely untouched. Checklist entries you attested by hand are
+       preserved as-is; entries that were derived from the previous audit
+       (fromCode) are refreshed against the new evidence, because derived
+       data should track the code rather than go stale silently. */
+    existingSite.scans.push(scan);
+    [...GDPR_CHECKLIST, ...CCPA_CHECKLIST].forEach(item=>{
+      const prev = existingSite.checklistState[item.id];
+      const isManual = prev && prev.checked && !prev.fromCode;
+      if(isManual) return;
+      const fresh = codeAuditAttestation(audit, item.id);
+      if(fresh) existingSite.checklistState[item.id] = fresh;
+      else if(prev && prev.fromCode) delete existingSite.checklistState[item.id];
+    });
+    existingSite.codeEvidence = audit.results;
+    existingSite.codeStats = {totalFiles: audit.totalFiles, analyzedFiles: audit.analyzedFiles, skippedFiles: audit.skippedFiles};
+    state.selectedSiteId = existingSite.id;
+  } else {
+    const countryCodes = state.newScanCountries;
+    const manualCountries = state.newScanManualCountries;
+    const checklistState = {};
+    [...GDPR_CHECKLIST, ...CCPA_CHECKLIST].forEach(item=>{
+      const fresh = codeAuditAttestation(audit, item.id);
+      if(fresh) checklistState[item.id] = fresh;
+    });
+
+    const id = 'site-' + Date.now();
+    const docketNum = state.nextDocketNum++;
+    state.sites.push({
+      id, domain: rootName, docketNum,
+      kind: 'code',
+      addedAt: Date.now(),
+      manualRegs: defaultManualRegsFromCountries(countryCodes),
+      selectedCountries: [...countryCodes],
+      manualCountries: manualCountries.map(m=>({...m})),
+      manualCompetitors: [],
+      scans: [scan],
+      checklistState,
+      overrides: {},
+      codeEvidence: audit.results,
+      codeStats: {totalFiles: audit.totalFiles, analyzedFiles: audit.analyzedFiles, skippedFiles: audit.skippedFiles},
+    });
+    state.selectedSiteId = id;
+  }
+
   pendingCodeFiles = null;
   state.pendingCodeFileCount = 0;
   state.codeAuditProgress = null;
+  state.scanningExistingSiteId = null;
+  state.reauditError = null;
   state.scanning = false;
   state.activeTab = 'compliance';
   render();
 }
 
+/* Restore any previously saved session before the first paint, so manual
+   overrides and attestations from earlier runs are already in place. */
+loadPersistedState();
 render();

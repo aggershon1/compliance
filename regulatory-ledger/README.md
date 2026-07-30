@@ -20,7 +20,8 @@ Other features:
 - **Privacy trust tab** — a separate score covering data minimization, consent clarity, user rights support, third-party transparency, and retention specificity — independent of legal compliance.
 - **vs. Competitors tab** — a basic score comparison against other companies (illustrative — see the table below).
 - **Settings dropdown** (top right) — adjust how much each severity tier counts toward the blended score.
-- **Docket sidebar** — saved sites with scan history; re-scans are triggered manually, never automatically.
+- **Docket sidebar** — saved sites with scan history; re-scans/re-audits are triggered manually, never automatically.
+- **Your manual work persists** — overrides, attestations, and notes are saved locally and restored on load, so re-auditing the same product later doesn't mean re-entering everything. Export/import from the Settings dropdown.
 
 See [`SPEC.md`](./SPEC.md) for the full spec and [`CHANGELOG.md`](./CHANGELOG.md) for version history.
 
@@ -38,11 +39,11 @@ This is a front-end prototype meant to demonstrate the product concept and inter
 | Legislation database | Static seed data, illustrative |
 | Enforcement fines / precedent cases | **Real, publicly reported enforcement actions** (named company, regulator, year, amount), cited for comparison to the type of violation — not a claim that any scanned site committed them or is connected to those companies. As originally announced; some remain under appeal. |
 | vs. Competitors scores | Simulated — no real crawl of competitor sites exists yet, even when a real company name is shown |
-| Accounts / auth | Simulated with local browser state, resets on reload |
+| Accounts / auth | No accounts — but your work now persists in this browser's local storage (overrides, attestations, notes), with export/import. Server-side accounts are `SPEC.md` Phase 1. |
 
 ## Tech
 
-HTML shell + CSS in `regulatory-ledger.html`, loading six plain-script `js/*.js` files (data, scoring, reviewer, codeaudit, render, app) — vanilla JS, no framework, no build step. Fonts: Fraunces (display), IBM Plex Sans (body), IBM Plex Mono (data/citations), loaded from Google Fonts CDN.
+HTML shell + CSS in `regulatory-ledger.html`, loading seven plain-script `js/*.js` files (data, storage, scoring, reviewer, codeaudit, render, app) — vanilla JS, no framework, no build step. Fonts: Fraunces (display), IBM Plex Sans (body), IBM Plex Mono (data/citations), loaded from Google Fonts CDN.
 
 ## Roadmap
 

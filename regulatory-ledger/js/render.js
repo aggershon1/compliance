@@ -31,6 +31,11 @@ function render(){
     </div>
   `;
   attachHandlers(site);
+  /* render() is this app's universal "something changed" signal (see
+     CLAUDE.md), so it's also the one reliable place to persist from —
+     rather than sprinkling save calls across ~40 mutation sites. The write
+     itself is debounced in storage.js. */
+  persistState();
 }
 
 function renderDocketList(){
@@ -99,7 +104,11 @@ function renderMain(site){
       <div class="header-actions">
         <button class="export-btn" id="btn-export">↓ Export PDF report</button>
         <button class="ff-btn" id="btn-fastforward" title="Demo only: ages all self-attested items by 100 days">⏩ Simulate 100 days (demo)</button>
-        ${site.kind==='code' ? '' : `<button class="rescan-btn" id="btn-rescan">Re-scan now</button>`}
+        ${site.kind==='code'
+          ? `<label class="rescan-btn" id="btn-reaudit">↻ Re-audit (choose folder)
+               <input type="file" id="reaudit-folder-input" webkitdirectory directory multiple style="display:none;">
+             </label>`
+          : `<button class="rescan-btn" id="btn-rescan">Re-scan now</button>`}
       </div>
     </div>
 
@@ -109,6 +118,7 @@ function renderMain(site){
       <button class="reg-toggle ${effectiveRegs(site).CCPA?'on':''}" data-reg="CCPA">CCPA / CPRA</button>
       <button class="country-toggle-btn ${state.countryPanelOpen?'open':''}" id="btn-country-toggle">Filter by country ${state.countryPanelOpen?'▴':'▾'}</button>
     </div>
+    ${state.reauditError ? `<div class="err" style="max-width:620px;">${state.reauditError}</div>` : ''}
     <p class="picker-tip">Tip: selecting a country below can keep a regulation active even if its direct toggle looks off — the picker shows the combined result of both.</p>
     ${renderCountryPanel(site)}
 
@@ -421,7 +431,12 @@ function renderOverrideControl(site, itemId, rawCurrentStatus){
   const historyCount = (state.overrideHistory[itemId]||[]).length;
   let html = '';
   if(ov){
+    /* If the underlying result has moved since this override was recorded,
+       the reason for overriding may no longer hold — surface it rather than
+       letting a stale manual verdict quietly outrank fresh evidence. */
+    const basisChanged = rawCurrentStatus !== undefined && rawCurrentStatus !== ov.previousStatus;
     html += `<div class="override-note"><span class="override-badge">Overridden</span>${ov.previousStatus} → ${ov.status} — “${ov.explanation}”
+      ${basisChanged ? `<div class="override-basis-changed">⚠ This override was recorded when the underlying result was <b>${ov.previousStatus}</b>. The latest run says <b>${rawCurrentStatus}</b> — worth re-checking whether the override still applies.</div>` : ''}
       <div style="margin-top:6px;"><button class="link-btn" data-clear-override="${itemId}">Clear override</button></div></div>`;
   } else if(isOpen){
     const draft = state.overrideDrafts[key] || (state.overrideDrafts[key] = {status: rawCurrentStatus==='NA'?'Pass':rawCurrentStatus, explanation:''});
@@ -689,11 +704,25 @@ function renderSettingsDropdown(){
       <span class="mono">${state.sevWeights[sev]}×</span>
     </div>
   `).join('');
+  const size = persistedSizeLabel();
   return `
     <div class="settings-dropdown-title">Severity weighting</div>
     <p class="settings-dropdown-note">Turn a tier up if that category of infraction concerns you more. Applies immediately, across every open site.</p>
     ${rows}
     <button class="submit-btn" id="btn-reset-weights">Reset to defaults</button>
+
+    <div class="settings-section-divider"></div>
+    <div class="settings-dropdown-title">Saved data</div>
+    <p class="settings-dropdown-note">Your overrides, attestations, and notes are saved in this browser only — never uploaded. ${size ? `Currently using <b>${size}</b>.` : 'Nothing saved yet.'}</p>
+    ${state.storageWarning ? `<div class="storage-warning">${state.storageWarning}</div>` : ''}
+    <div class="settings-data-row">
+      <button class="link-btn" id="btn-export-data">Export data</button>
+      <label class="link-btn" style="cursor:pointer;">Import data
+        <input type="file" id="import-data-input" accept="application/json,.json" style="display:none;">
+      </label>
+      <button class="link-btn settings-danger" id="btn-clear-data">Clear all</button>
+    </div>
+    ${state.importMessage ? `<div class="settings-import-msg">${state.importMessage}</div>` : ''}
   `;
 }
 

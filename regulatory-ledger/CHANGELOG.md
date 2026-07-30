@@ -2,6 +2,20 @@
 
 All notable changes to this prototype are logged here.
 
+## [0.7.0] — Manual work persists across sessions; re-audit an existing entry
+
+### Added
+- **Your manual work is now saved between sessions.** Overrides and their explanations, self-attested checklist answers, typed drafts and screenshots, manual countries/competitors, and severity weights are stored in the browser (`js/storage.js`) and restored on load — so auditing the same product again weeks later doesn't mean re-entering any of it.
+- **Re-audit an existing source-audited entry.** Code entries get a "Re-audit (choose folder)" action that appends a new scan to the *same* docket entry instead of creating a duplicate. Overrides are preserved untouched; hand-written attestations are preserved; attestations that were *derived* from the previous audit are refreshed against the new evidence, so derived data tracks the code instead of going quietly stale.
+- **Stale-override detection.** If the underlying result moves between runs, the override shows a warning naming both the status it was recorded against and the current one ("recorded when the underlying result was Pending; the latest run says Pass — worth re-checking"). The override is never auto-cleared; the call stays yours.
+- **Export / import / clear** in the Settings dropdown, plus a readout of how much is stored. Export produces a versioned JSON file — useful as a backup, for moving machines, and as groundwork for the audit-trail package in ROADMAP's longer-term section.
+
+### Notes
+- **Local-only, deliberately.** This project has no backend, and compliance notes about a real company shouldn't be transmitted anywhere without an explicit decision — `SPEC.md` Phase 1 is where server-side accounts/history belong; this is the honest no-backend version. The Settings panel states this in-product.
+- Transient UI state (scan progress, open panels, new-scan form drafts) is deliberately **not** persisted — restoring `scanning: true` would rehydrate a stuck progress view with no audit running behind it.
+- Saves are debounced (~400ms) so the frequent re-renders during a source audit don't each trigger a write, with an immediate flush on tab close/hide — without that flush, a note typed just before closing the tab would be lost inside the debounce window (caught in testing).
+- Quota is handled honestly: if the payload is too large, screenshots are dropped first (descriptions are the part that took effort) and the user is told; if it still fails, the UI says so rather than silently losing work.
+
 ## [0.6.0] — Source audit: upload a codebase for real analysis
 
 ### Added
