@@ -1,6 +1,8 @@
 # The Regulatory Ledger
 
-A prototype for a web app that scans a website and rates its privacy and regulatory compliance, adjustable by country/regulation, and surfaces both current and upcoming legislation relevant to the site.
+A workbench for tracking a product's privacy/regulatory compliance posture against GDPR and CCPA/CPRA, adjustable by country, with upcoming legislation relevant to the markets you operate in.
+
+> **It does not scan or inspect any website.** Every status in this tool is one a person recorded, with their stated reasoning. Earlier versions simulated a crawl and presented invented findings as if observed; that was removed in v0.9.0. See [What's real](#whats-real-vs-mocked-in-this-prototype).
 
 **[Open the prototype](./regulatory-ledger.html)** — HTML shell + CSS, loading `js/*.js` via plain `<script>` tags, no build step. Open it directly in a browser.
 
@@ -8,7 +10,7 @@ A prototype for a web app that scans a website and rates its privacy and regulat
 
 The app is built around one core insight: most of what GDPR/CCPA actually require — access, deletion, portability, consent management — happens **inside a logged-in product experience**, which an external crawler can never see. So compliance checking is split into tracks that roll up into **one combined score per regulation**:
 
-- **Scanned (logged-out)** — a simulated full-site crawl against whatever's publicly observable: privacy policy, cookie banner, terms, public disclosures.
+- **Publicly observable** — requirements you can verify yourself on the live site: privacy policy, cookie banner, terms, "Do Not Sell" link. The tool gives you the criteria and records your finding; it does not look at the site for you.
 - **Self-attested (logged-in)** — a checklist, prepopulated per regulation, for the things only visible behind auth (self-serve access/delete/export/correct, consent preference centers). You check what you have, describe how it works, optionally attach a screenshot, and the app reviews the submission — asking a targeted follow-up question and showing a rough sketch of what "compliant" typically looks like if your first answer isn't detailed enough to judge confidently.
 - **Source audit (retired v0.8.0)** — a third track once let you upload a repo folder for real, in-browser pattern-matching against every requirement, with file/line evidence citations. The upload path was retired because shipping source into a web tool doesn't survive most security reviews. Entries audited before then remain viewable as historical records, and the engine is preserved in `js/codeaudit.js` (no longer loaded) for a future GitHub App or CLI path — see [`ROADMAP.md`](./ROADMAP.md).
 
@@ -17,29 +19,29 @@ Other features:
 - **Staleness tracking** — self-attested items flag "Needs re-attestation" after 90 days.
 - **Upcoming legislation tab** — filterable by region/status, defaults to what's relevant to the open site's countries.
 - **Risk & precedent, inline** — every failing/partial item on the Compliance Results tab shows its own comparable real enforcement action (company, fine, regulator, year), plus a combined potential-exposure range near the overall grade.
-- **Privacy trust tab** — a separate score covering data minimization, consent clarity, user rights support, third-party transparency, and retention specificity — independent of legal compliance.
-- **vs. Competitors tab** — a basic score comparison against other companies (illustrative — see the table below).
+- **vs. Competitors tab** — a list of competitors you're tracking (no scores; see the table below).
 - **Settings dropdown** (top right) — a strictness dial controlling how literally findings must match statutory wording (e.g. whether "Do Not Sell My Information" satisfies a statute saying "…My Personal Information"), plus saved-data controls.
-- **Docket sidebar** — saved sites with scan history; re-scans/re-audits are triggered manually, never automatically.
+- **Docket sidebar** — every product you're tracking, with its assessment progress per regulation.
 - **Your manual work persists** — overrides, attestations, and notes are saved locally and restored on load, so re-reviewing the same product later doesn't mean re-entering everything. Export/import from the Settings dropdown.
-- **Exportable audit log** — a printable record of every run, each requirement's status and where it came from, every attestation, and every override with its stated reason.
+- **Exportable audit log** — a printable record of each requirement's status and who recorded it when, every attestation, and every assessment or override with its stated reason.
 
 See [`SPEC.md`](./SPEC.md) for the full spec and [`CHANGELOG.md`](./CHANGELOG.md) for version history.
 
 ## What's real vs. mocked in this prototype
 
-This is a front-end prototype meant to demonstrate the product concept and interaction design — it does not perform a real website scan.
+This is a front-end prototype. It performs **no automated inspection of anything** — its value is the requirement set, the structured record you build against it, and the audit trail that comes out.
 
 | Piece | Status |
 |---|---|
-| UI/UX, navigation, scoring logic, scan flow | Fully functional |
-| Website crawling / tracker detection | Simulated (deterministic per-domain mock data) |
-| Source audit of an uploaded codebase | **Retired in v0.8.0.** Was real (pattern-matching your actual files in-browser, with file/line citations). Existing entries keep their real evidence; no new ones can be created, so **new entries are once again entirely simulated**. |
+| UI/UX, navigation, scoring, record-keeping | Fully functional |
+| Website crawling / tracker detection | **Does not exist.** No automated inspection of any kind. Removed in v0.9.0 — it previously generated statuses from a hash of the domain name and displayed hardcoded strings (e.g. "No privacy policy found at /privacy") as if they were observations. |
+| Requirement statuses | **Real** — each one recorded by a person, with their stated reason and a timestamp, kept in the audit log |
+| Source audit of an uploaded codebase | **Retired in v0.8.0.** Was real (pattern-matching your actual files in-browser, with file/line citations). Existing entries keep their real evidence; no new ones can be created. |
 | GDPR / CCPA requirement text | Real regulatory citations and requirements |
 | Self-attested checklist review (status, confidence, follow-up questions) | Simulated — rule-based keyword matching, not a live model call (see `SPEC.md` Phase 1) |
 | Legislation database | Static seed data, illustrative |
 | Enforcement fines / precedent cases | **Real, publicly reported enforcement actions** (named company, regulator, year, amount), cited for comparison to the type of violation — not a claim that any scanned site committed them or is connected to those companies. As originally announced; some remain under appeal. |
-| vs. Competitors scores | Simulated — no real crawl of competitor sites exists yet, even when a real company name is shown |
+| vs. Competitors scores | **Removed in v0.9.0.** Competitors can be tracked by name, but no scores are shown — assessing another company would mean auditing their product the way you audit yours. |
 | Accounts / auth | No accounts — but your work now persists in this browser's local storage (overrides, attestations, notes), with export/import. Server-side accounts are `SPEC.md` Phase 1. |
 
 ## Tech
@@ -48,7 +50,7 @@ HTML shell + CSS in `regulatory-ledger.html`, loading six plain-script `js/*.js`
 
 ## Roadmap
 
-See [`ROADMAP.md`](./ROADMAP.md) for planned v2+ direction, including a real crawler, a live legislation/enforcement data pipeline, accounts, and workflow integrations.
+See [`ROADMAP.md`](./ROADMAP.md) for planned direction. The open question at the top of it: restoring a *real* analysis path — a crawler for the observable surface, or a local CLI for the behind-login surface — since neither exists today.
 
 ## Legal
 

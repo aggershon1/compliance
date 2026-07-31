@@ -1,26 +1,11 @@
 /* ============================================================
-   DETERMINISTIC PSEUDO-RANDOM (seeds the simulated scan track only)
-   ============================================================ */
-function hashStr(str){ let h=0; for(let i=0;i<str.length;i++){ h=(h<<5)-h+str.charCodeAt(i); h|=0; } return h; }
-function seededRandom(seedStr){ let h=hashStr(seedStr); let x=Math.sin(h)*10000; return x-Math.floor(x); }
-
-function statusFor(domain, variant, salt, req){
-  const seedBase = domain + '::' + variant + '::' + salt + '::' + req.id;
-  // Demonstrates the "EU vs US cookie banner" scenario explicitly for the consent requirement.
-  if(req.id === 'gdpr-s2'){
-    if(variant === 'EU' || variant === 'CH'){
-      return seededRandom(seedBase+'::eu-consent') < 0.85 ? 'Pass' : 'Partial';
-    }
-    if(variant === 'US'){
-      return seededRandom(seedBase+'::us-consent') < 0.55 ? 'Fail' : 'Partial';
-    }
-  }
-  if(req.na && seededRandom(seedBase+'::na') < 0.12) return 'NA';
-  const r = seededRandom(seedBase+'::status');
-  if(r < 0.42) return 'Pass';
-  if(r < 0.74) return 'Partial';
-  return 'Fail';
-}
+   SCORING
+   ============================================================
+   Nothing here invents a result. Every status comes from something a person
+   recorded: a self-attestation, or an explicit assessment/override with a
+   stated reason. Requirements nobody has assessed yet report 'Unassessed'
+   and earn zero credit — the same as a Fail — so an untouched entry can
+   never look compliant. */
 
 function gradeLabel(score){
   if(score>=90) return 'A';
@@ -44,11 +29,19 @@ function regDefs(regKey){
 }
 
 function rawStatus(site, scan, regKey, item, source){
-  if(source === 'scanned') return scan.scanned[regKey][item.id];
+  /* The publicly-observable track has no automated judgment behind it: the
+     simulated crawler was removed in v0.9.0 because it fabricated findings
+     about real sites. Until a real crawler exists these are assessed by a
+     person, recorded through the same override mechanism as any other
+     correction, so `itemEffectiveStatus` picks it up. */
+  if(source === 'scanned') return 'Unassessed';
   const st = site.checklistState[item.id];
   if(st && st.finalized) return st.status;
   if(st && st.checked) return 'Pending';
-  return 'Fail';
+  /* Nobody has attested this. That's unknown, not failing — reporting 'Fail'
+     would assert non-compliance no one verified. It still earns zero credit
+     in blendedScore, so the score is unchanged; only the claim is. */
+  return 'Unassessed';
 }
 function itemEffectiveStatus(site, scan, regKey, item, source){
   const ov = site.overrides[item.id];
@@ -82,14 +75,14 @@ function gapItems(site, scan, regKey){
   const list = [];
   scanned.forEach(r=>{
     const st = itemEffectiveStatus(site, scan, regKey, r, 'scanned');
-    if(st==='Fail'||st==='Partial') list.push({item:r, source:'scanned', status:st, regKey});
+    if(st==='Fail'||st==='Partial'||st==='Unassessed') list.push({item:r, source:'scanned', status:st, regKey});
   });
   checklist.forEach(item=>{
     const st = itemEffectiveStatus(site, scan, regKey, item, 'attested');
-    if(st==='Fail'||st==='Partial'||st==='Pending') list.push({item, source:'attested', status:st, regKey});
+    if(st==='Fail'||st==='Partial'||st==='Pending'||st==='Unassessed') list.push({item, source:'attested', status:st, regKey});
   });
   list.sort((a,b)=>{
-    const sw = s => s==='Fail'?3:s==='Pending'?2.5:2;
+    const sw = s => s==='Fail'?3:s==='Unassessed'?2.8:s==='Pending'?2.5:2;
     const sa = weights[a.item.sev]*10 + sw(a.status);
     const sb = weights[b.item.sev]*10 + sw(b.status);
     return sb-sa;
@@ -99,48 +92,14 @@ function gapItems(site, scan, regKey){
 
 function topGapsCaption(site, scan, regKey){
   const gaps = gapItems(site, scan, regKey).slice(0,2);
-  if(gaps.length===0) return 'No material gaps found in this scan — nice work.';
+  if(gaps.length===0) return 'Every requirement assessed, with no open gaps recorded.';
   const parts = gaps.map(g=>`<b>${g.item.text.split(' —')[0]}</b> (${SEV_LABEL[g.item.sev].toLowerCase()})`);
   return 'Held back mainly by: ' + parts.join(', and ') + '.';
 }
 
-function runScan(domain, variant, salt){
-  const scannedGDPR = {}; GDPR_SCANNED.forEach(r=>{ scannedGDPR[r.id] = statusFor(domain, variant, salt, r); });
-  const scannedCCPA = {}; CCPA_SCANNED.forEach(r=>{ scannedCCPA[r.id] = statusFor(domain, variant, salt, r); });
-
-  const trust = {};
-  TRUST_CATS.forEach(c=>{
-    const r = seededRandom(domain+'::'+variant+'::'+salt+'::trust::'+c.id);
-    trust[c.id] = Math.round(40 + r*58);
-  });
-  const trustScore = Math.round(TRUST_CATS.reduce((a,c)=>a+trust[c.id],0)/TRUST_CATS.length);
-
-  return {
-    timestamp: Date.now(),
-    scanned: {GDPR: scannedGDPR, CCPA: scannedCCPA},
-    trust: {scores: trust, score: trustScore},
-  };
-}
-
 /* ============================================================
-   COUNTRY POSTURE (replaces the old Global/US/EU/CH picker)
+   COUNTRY SCOPE
    ============================================================ */
-/* Internal-only bucket used to seed the scanned track's simulated regional
-   consent behavior (see the gdpr-s2 special case in statusFor above). It's
-   derived from whichever countries are selected for the site, rather than
-   being its own user-facing choice — this is what let us drop the
-   "Global / Other" chip from the New Scan form while keeping the existing
-   US-vs-EU cookie-banner simulation working. Manual (free-text) countries and
-   sites with no GDPR/CCPA-mapped country fall back to the same neutral
-   baseline behavior the old "Global" option used internally. */
-function simPostureFor(countryCodes, manualCountries){
-  const known = (countryCodes||[]).map(code => COUNTRIES.find(c=>c.code===code)).filter(Boolean);
-  if(known.some(c=>c.code==='CH')) return 'CH';
-  if(known.some(c=>c.regs.includes('GDPR') && c.code!=='CH')) return 'EU';
-  if(known.some(c=>c.regs.includes('CCPA'))) return 'US';
-  return 'Global';
-}
-
 function defaultManualRegsFromCountries(countryCodes){
   const known = (countryCodes||[]).map(code => COUNTRIES.find(c=>c.code===code)).filter(Boolean);
   return {
@@ -216,9 +175,22 @@ function isChecklistItemResolved(site, item){
   const st = site.checklistState[item.id];
   return !!(st && st.finalized);
 }
-function allSelfAttestedResolved(site, regKey){
-  const {checklist} = regDefs(regKey);
-  return checklist.every(item => isChecklistItemResolved(site, item));
+/* A final grade requires every requirement to have been assessed by someone
+   — both the publicly-observable ones and the behind-login ones. Before
+   v0.9.0 only the checklist gated the grade, because the observable track
+   was auto-filled with simulated results; with those gone, an unassessed
+   requirement is genuinely unknown and must not be graded around. */
+function allRequirementsAssessed(site, regKey){
+  const {scanned, checklist} = regDefs(regKey);
+  return scanned.every(r => !!site.overrides[r.id])
+      && checklist.every(item => isChecklistItemResolved(site, item));
+}
+function assessmentProgress(site, regKey){
+  const {scanned, checklist} = regDefs(regKey);
+  const total = scanned.length + checklist.length;
+  const done = scanned.filter(r=>!!site.overrides[r.id]).length
+             + checklist.filter(i=>isChecklistItemResolved(site, i)).length;
+  return {done, total};
 }
 
 /* ============================================================
@@ -241,6 +213,7 @@ function exposureSummary(site, scan){
   const matched = [];
   regs.forEach(regKey=>{
     gapItems(site, scan, regKey).forEach(g=>{
+      if(g.status === 'Unassessed') return;   // unknown is not a finding
       const fine = FINES[g.item.id];
       if(fine) matched.push(fine);
     });
@@ -255,22 +228,4 @@ function exposureSummary(site, scan){
     min: Math.min(...amounts), max: Math.max(...amounts),
   }));
   return { ranges, caseCount: matched.length };
-}
-
-/* ============================================================
-   COMPETITOR BENCHMARK (illustrative — see data.js note on GENERIC_COMPETITOR_LABELS)
-   ============================================================ */
-/* manualNames: real competitor names the user typed in on the Competitors
-   tab (site.manualCompetitors), if any. Falls back to the generic
-   placeholders when empty. Scores are simulated either way — a real name
-   here doesn't mean a real crawl happened for that company. */
-function competitorScores(domain, regKey, manualNames){
-  const names = (manualNames && manualNames.length) ? manualNames : GENERIC_COMPETITOR_LABELS;
-  const rows = names.map(label=>{
-    const r = seededRandom(domain+'::'+regKey+'::competitor::'+label);
-    return {label, score: Math.round(45 + r*50)};
-  });
-  const medianR = seededRandom(domain+'::'+regKey+'::competitor::'+SECTOR_MEDIAN_LABEL);
-  rows.push({label: SECTOR_MEDIAN_LABEL, score: Math.round(45 + medianR*50)});
-  return rows;
 }

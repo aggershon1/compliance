@@ -49,64 +49,43 @@ const GDPR_SCANNED = [
     articleTitle:'GDPR Article 6 — Lawfulness of processing',
     articleText:'Processing is only lawful if at least one condition applies: consent, necessity for a contract, a legal obligation, protecting someone’s vital interests, a public-interest task, or a legitimate interest not overridden by the individual’s rights.',
     proposals:['Create a data-processing register mapping every purpose you collect data for to one of the six legal bases.', 'Add a short "why we collect this" note next to each data type in your privacy notice.'],
-    hints:{partial:'Lawful basis is referenced generically but not mapped to each processing purpose.', fail:'No documented lawful basis found for processing activities.'},
-    evidence:{
-      fail:{snippet:'"We use cookies and similar technologies to improve your experience."', location:'Privacy Policy → “How We Use Information” (no legal basis named)'},
-      partial:{snippet:'"We process your data as needed to operate our services."', location:'Privacy Policy → “How We Use Information”'}}},
+    guide:{partial:'Lawful basis is referenced generically, but not mapped to each processing purpose.', fail:'No lawful basis is documented for your processing activities.'}},
   {id:'gdpr-s2', code:'Art. 7 / ePrivacy', text:'Granular consent mechanism for cookies and trackers', sev:'high', na:false,
     layman:'If your site uses cookies or trackers that aren’t strictly necessary, you need to ask permission first — and it has to be a real choice, not a pre-checked box.',
     articleTitle:'GDPR Art. 7 & ePrivacy Directive — Conditions for consent',
     articleText:'Consent must be freely given, specific, informed, and unambiguous, shown through a clear affirmative action. It must be as easy to withdraw as to give, and bundling unrelated consents together isn’t allowed.',
     proposals:['Make "Reject All" as prominent and one-click as "Accept All" in the cookie banner.', 'Split consent into categories (functional, analytics, marketing) so users can accept some and decline others.'],
-    hints:{partial:'Cookie banner exists but lacks granular accept/reject-by-category controls.', fail:'No compliant consent mechanism detected — trackers appear to fire before consent.'},
-    evidence:{
-      fail:{snippet:'(No cookie banner detected before analytics/marketing scripts loaded)', location:'Homepage, first page load'},
-      partial:{snippet:'"Accept All" · "Cookie Settings"', location:'Cookie banner, bottom of homepage (no equally prominent "Reject All")'}}},
+    guide:{partial:'A cookie banner exists, but without granular accept/reject-by-category controls.', fail:'No compliant consent mechanism exists, or trackers fire before consent is given.'}},
   {id:'gdpr-s3', code:'Art. 13', text:'Privacy notice covers all processing purposes in plain language', sev:'med', na:false,
     layman:'Your privacy policy needs to actually explain, in plain language, everything you do with someone’s data — not just exist as a formality.',
     articleTitle:'GDPR Article 13 — Information to be provided',
     articleText:'When collecting data directly from someone, you must tell them who you are, why you’re collecting their data, how long you’ll keep it, who it’s shared with, and what rights they have.',
     proposals:['Audit every data collection point on the site and confirm each purpose is named in the privacy notice.', 'Add a plain-language summary at the top of the policy, above the legal text.'],
-    hints:{partial:'Notice covers most processing but omits some data sources found during the crawl.', fail:'Privacy notice is missing, or does not match tracking behavior observed on the site.'},
-    evidence:{
-      fail:{snippet:'(No privacy policy found at /privacy or linked from the footer)', location:'Footer navigation'},
-      partial:{snippet:'"...may share information with our partners for business purposes."', location:'Privacy Policy → “Sharing” section (partners not named)'}}},
+    guide:{partial:'The notice covers most processing, but omits some data you actually collect.', fail:'The privacy notice is missing, or does not match how the site actually behaves.'}},
   {id:'gdpr-s4', code:'Art. 37', text:'DPO contact designated and published', sev:'low', na:true,
     layman:'If your organization processes a lot of sensitive or large-scale personal data, you may be required to name a specific person responsible for privacy — and publish how to reach them.',
     articleTitle:'GDPR Article 37 — Designation of the data protection officer',
     articleText:'Certain organizations — including those doing large-scale monitoring or processing special categories of data — must appoint a Data Protection Officer and publish their contact details.',
     proposals:['Confirm whether your processing volume/type actually triggers the DPO requirement.', 'If required, publish a named or role-based contact (e.g. privacy@yourcompany.com) in the privacy policy.'],
-    hints:{partial:'A privacy contact is listed but not clearly designated as DPO.', fail:'No Data Protection Officer or privacy contact designated.'},
-    evidence:{
-      fail:{snippet:'(No "Data Protection Officer" or dedicated privacy contact found)', location:'Privacy Policy footer / Contact page'},
-      partial:{snippet:'"Questions? Contact privacy@[domain]."', location:'Privacy Policy → “Contact Us” (role not labeled DPO)'}}},
+    guide:{partial:'A privacy contact is listed, but not clearly designated as DPO.', fail:'No Data Protection Officer or privacy contact is designated.'}},
   {id:'gdpr-s5', code:'Ch. V', text:'International transfer safeguards disclosed', sev:'high', na:false,
     layman:'If you send European users’ data to a country outside the EU (like the US), you need a legal safeguard in place so it stays protected once it leaves.',
     articleTitle:'GDPR Chapter V — Transfers of personal data to third countries',
     articleText:'Transfers outside the EEA are only allowed where the destination has an adequacy decision, or where safeguards like Standard Contractual Clauses (SCCs) or binding corporate rules are in place.',
     proposals:['Identify every vendor/subprocessor that stores or processes EU user data outside the EEA.', 'Put Standard Contractual Clauses in place with each vendor and reference them in your privacy policy.'],
-    hints:{partial:'Transfers outside the EEA are mentioned but the underlying safeguard isn’t named.', fail:'Cross-border data transfers detected with no documented safeguard.'},
-    evidence:{
-      fail:{snippet:'"Your data may be transferred to and processed in other countries."', location:'Privacy Policy → “International Users” (no safeguard named)'},
-      partial:{snippet:'"...in accordance with applicable data protection laws."', location:'Privacy Policy → “International Users”'}}},
+    guide:{partial:'Transfers outside the EEA are mentioned, but the underlying safeguard isn’t named.', fail:'Cross-border transfers happen with no documented safeguard.'}},
   {id:'gdpr-s6', code:'Art. 30', text:'Records-of-processing commitment referenced in policy', sev:'med', na:false,
     layman:'You’re expected to keep an internal record of what personal data you collect, why, and where it goes — like an inventory of your own data practices.',
     articleTitle:'GDPR Article 30 — Records of processing activities',
     articleText:'Organizations must maintain a record of processing activities, including purposes, categories of data and recipients, and retention periods, available to regulators on request.',
     proposals:['Build an internal record cataloging each processing activity, purpose, and retention period.', 'Reference the existence of this record in your public privacy policy.'],
-    hints:{partial:'A general commitment exists but the inventory scope looks incomplete.', fail:'No reference to a records-of-processing practice found.'},
-    evidence:{
-      fail:{snippet:'(No mention of a data inventory or records-of-processing practice)', location:'Privacy Policy, full text'},
-      partial:{snippet:'"We maintain internal records of our data practices."', location:'Privacy Policy → “Our Commitment” (no scope or detail given)'}}},
+    guide:{partial:'A general commitment exists, but the inventory’s scope is incomplete.', fail:'No records-of-processing practice is referenced anywhere.'}},
   {id:'gdpr-s7', code:'Art. 33', text:'Breach notification procedure documented', sev:'high', na:false,
     layman:'If you have a data breach, you’re required to tell the relevant regulator within 72 hours of finding out — and in serious cases, tell affected users too.',
     articleTitle:'GDPR Article 33 — Notification of a personal data breach',
     articleText:'In the event of a breach likely to result in risk to individuals, the controller must notify the supervisory authority within 72 hours, and in high-risk cases, notify affected individuals directly.',
     proposals:['Write an incident-response runbook naming who owns the 72-hour regulator notification.', 'State your breach-notification commitment explicitly in the privacy policy.'],
-    hints:{partial:'A breach process is referenced but the 72-hour window isn’t specified.', fail:'No documented data breach notification procedure found.'},
-    evidence:{
-      fail:{snippet:'(No breach-notification commitment found)', location:'Privacy Policy / Security page'},
-      partial:{snippet:'"We take reasonable steps to notify affected users of a security incident."', location:'Security page (72-hour regulator window not mentioned)'}}},
+    guide:{partial:'A breach process is referenced, but the 72-hour window isn’t specified.', fail:'No breach-notification procedure is documented.'}},
 ];
 
 const GDPR_CHECKLIST = [
@@ -154,46 +133,31 @@ const CCPA_SCANNED = [
     articleTitle:'CCPA §1798.135 — Right to opt-out',
     articleText:'Businesses that sell or share personal information must provide a clear and conspicuous "Do Not Sell or Share My Personal Information" link allowing consumers to opt out.',
     proposals:['Move the opt-out link out of a buried sub-menu into the main footer.', 'Make sure the link actually triggers the opt-out rather than just linking to an explainer page.'],
-    hints:{partial:'The link exists but is buried in footer navigation rather than prominent.', fail:'No "Do Not Sell or Share My Personal Information" link found.'},
-    evidence:{
-      fail:{snippet:'(No "Do Not Sell or Share My Personal Information" link found in the footer or elsewhere)', location:'Site-wide footer'},
-      partial:{snippet:'"Your Privacy Choices"', location:'Footer link (routes to a generic settings page, not a direct opt-out)'}}},
+    guide:{partial:'The link exists, but is buried rather than clear and conspicuous.', fail:'No "Do Not Sell or Share My Personal Information" link is present.'}},
   {id:'ccpa-s2', code:'§1798.100', text:'Notice at collection describing categories and purposes', sev:'high', na:false,
     layman:'Before or when you collect someone’s data, you need to tell them what categories you’re collecting and why — not bury it in a long policy.',
     articleTitle:'CCPA §1798.100 — Notice at collection',
     articleText:'Businesses must inform consumers, at or before the point of collection, of the categories of personal information collected and the purposes they’ll be used for.',
     proposals:['Add a short notice at each data-collection point (forms, sign-up) listing what’s collected and why.', 'Cross-check the notice against everything actually being collected.'],
-    hints:{partial:'A notice is present but doesn’t list all categories of personal information collected.', fail:'No notice at collection shown before or at the point of data collection.'},
-    evidence:{
-      fail:{snippet:'(No notice shown at or before the point of collection on the sign-up form)', location:'Sign-up / account creation form'},
-      partial:{snippet:'"By continuing you agree to our Privacy Policy."', location:'Sign-up form (categories of data collected not listed inline)'}}},
+    guide:{partial:'A notice is present, but doesn’t list every category of personal information collected.', fail:'No notice is shown at or before the point of collection.'}},
   {id:'ccpa-s3', code:'§1798.125', text:'Non-discrimination commitment stated in policy', sev:'med', na:false,
     layman:'You’re not allowed to punish users — like giving them a worse product or higher prices — just because they exercised their privacy rights.',
     articleTitle:'CCPA §1798.125 — Non-discrimination',
     articleText:'Businesses may not deny goods or services, charge different prices, or provide a different level of service because a consumer exercised a CCPA right.',
     proposals:['Add an explicit non-discrimination statement to the privacy policy.', 'Audit account tiers/pricing to confirm opting out doesn’t quietly downgrade the experience.'],
-    hints:{partial:'Policy language exists but doesn’t explicitly rule out degraded service for opt-outs.', fail:'No non-discrimination commitment found in the policy.'},
-    evidence:{
-      fail:{snippet:'(No non-discrimination statement found anywhere in the policy text)', location:'Privacy Policy, full text'},
-      partial:{snippet:'"We may adjust the services available to you based on your settings."', location:'Privacy Policy → “Your Choices” (doesn’t rule out degraded service)'}}},
+    guide:{partial:'Policy language exists, but doesn’t rule out degraded service for opt-outs.', fail:'No non-discrimination commitment appears in the policy.'}},
   {id:'ccpa-s4', code:'§1798.121', text:'Sensitive personal information opt-out link present', sev:'high', na:false,
     layman:'Beyond the general opt-out, California users get an extra right to limit how you use more sensitive info (health, precise location, financial data).',
     articleTitle:'CCPA §1798.121 — Right to limit use of sensitive personal information',
     articleText:'Consumers have the right to direct a business to limit its use of sensitive personal information to what’s necessary to provide the requested goods or services.',
     proposals:['Add a distinct "Limit the Use of My Sensitive Personal Information" link, separate from the general opt-out.', 'Confirm what counts as sensitive PI in your data model first.'],
-    hints:{partial:'A "limit use" link is present but not clearly distinguished from the general opt-out.', fail:'No link to limit use of sensitive personal information found.'},
-    evidence:{
-      fail:{snippet:'(No "Limit the Use of My Sensitive Personal Information" link found)', location:'Footer / Privacy Choices page'},
-      partial:{snippet:'"Manage your privacy settings here."', location:'Account → Privacy Choices (sensitive-PI limit not called out separately)'}}},
+    guide:{partial:'A "limit use" link is present, but not distinguished from the general opt-out.', fail:'No link to limit use of sensitive personal information is present.'}},
   {id:'ccpa-s5', code:'§1798.125(b)', text:'Financial incentive program disclosure (if applicable)', sev:'low', na:true,
     layman:'If you offer users a discount or perk in exchange for their data (like a loyalty program), you have to clearly explain that trade-off.',
     articleTitle:'CCPA §1798.125(b) — Financial incentive disclosures',
     articleText:'Businesses offering financial incentives in exchange for personal information must disclose the material terms of the program and obtain opt-in consent.',
     proposals:['If you run a loyalty/rewards program, publish the specific data-for-benefit terms.', 'Add an explicit opt-in step before enrolling users in any incentive program involving their data.'],
-    hints:{partial:'A loyalty/rewards program exists but incentive terms aren’t fully disclosed.', fail:'A financial incentive program was detected without the required disclosure.'},
-    evidence:{
-      fail:{snippet:'"Earn points and rewards for your activity."', location:'Loyalty program page (no data-for-benefit disclosure)'},
-      partial:{snippet:'"Rewards program terms available on request."', location:'Loyalty program page (terms not published up front)'}}},
+    guide:{partial:'A loyalty/rewards program exists, but incentive terms aren’t fully disclosed.', fail:'A financial incentive program runs without the required disclosure.'}},
 ];
 
 const CCPA_CHECKLIST = [
@@ -286,40 +250,6 @@ const BILLS = [
    relevance:'Relevant if the site processes UK residents’ data under UK GDPR, which is diverging gradually from EU GDPR.',
    prep:'Watch for updated cookie-consent exemption rules that may simplify some banners.'},
 ];
-
-const TRUST_CATS = [
-  {id:'minimization', name:'Data minimization',
-   notes:{good:'Collection appears scoped to stated purposes — keep auditing fields as forms change.',
-           moderate:'Some optional fields are collected without a clearly stated purpose. Tag each field with a retention/purpose reason.',
-           weak:'Forms request more data than the stated purpose requires. Cut optional fields and require justification for any new one added.'}},
-  {id:'consent', name:'Consent clarity',
-   notes:{good:'Consent language is specific and avoids bundling unrelated permissions together.',
-           moderate:'Consent copy is understandable but bundles marketing and functional cookies together — separate them.',
-           weak:'Consent language is dense legal text with no plain-language summary above it.'}},
-  {id:'rights', name:'User rights support',
-   notes:{good:'Access, delete, and export flows are self-service and confirm completion to the user.',
-           moderate:'Rights exist but require emailing support, which adds friction and delay.',
-           weak:'No visible self-service path exists for users to exercise their data rights.'}},
-  {id:'thirdparty', name:'Third-party transparency',
-   notes:{good:'Sub-processors and ad/analytics partners are named with an up-to-date list.',
-           moderate:'Third parties are referenced generically ("partners") without a named list.',
-           weak:'There is no disclosure of which third parties receive user data.'}},
-  {id:'retention', name:'Retention specificity',
-   notes:{good:'Retention periods are stated per data category, not just "as long as necessary."',
-           moderate:'A general retention statement exists but isn’t broken out by data type.',
-           weak:'No retention period is stated anywhere in the policy.'}},
-];
-
-/* Fallback comparison set for the "vs. Competitors" tab, used until the user
-   types in real competitor names for the site being reviewed (see the manual
-   add box on that tab) — generic labels, not real companies, since without
-   that input we have no idea who a given scanned site actually competes
-   with. "Sector median" is always shown as a benchmark line, real names or
-   not. See CHANGELOG for why this tab exists ahead of SPEC.md's Phase 4 item;
-   scores are simulated either way — see the disclaimer on that tab. */
-const GENERIC_COMPETITOR_LABELS = ['Competitor A', 'Competitor B', 'Competitor C'];
-const SECTOR_MEDIAN_LABEL = 'Sector median';
-
 
 /* How literally a finding must match the letter of the law.
    `threshold` is the share of a requirement phrase's meaningful words that

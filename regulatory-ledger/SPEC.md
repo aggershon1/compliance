@@ -12,7 +12,11 @@ So the product is split into two data-collection tracks that feed **one combined
 
 ---
 
-## Track 1 — Automated scan (logged-out surface)
+## Track 1 — Publicly-observable requirements (manually assessed)
+
+> **Changed in v0.9.0.** This track was specified as an automated crawl and prototyped as a *simulation* of one. The simulation produced fabricated findings about real websites and was mistaken for real output, so it was removed. The requirement set is unchanged; what changed is who assesses it — a person does, until a real crawler exists. The original specification of the automated track follows, and remains the target.
+
+### Original specification — automated scan (logged-out surface)
 
 Full-site crawl of everything reachable without authentication: privacy policy, cookie banner behavior, terms of service, public data-collection forms, footer links (e.g. "Do Not Sell My Info"), and any public disclosures.
 

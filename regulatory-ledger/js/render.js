@@ -20,11 +20,11 @@ function render(){
       <div class="docket">
         <div class="docket-head">
           <h2>Docket</h2>
-          <button class="btn-new" id="btn-add-site">+ New scan</button>
+          <button class="btn-new" id="btn-add-site">+ New entry</button>
         </div>
         <div class="docket-list">${renderDocketList()}</div>
         <div class="disclaimer-foot">
-          This tool provides informational guidance only, not legal advice. Consult qualified counsel before making formal compliance decisions. Enforcement figures and the checklist review shown here are simulated for this prototype.
+          Informational guidance only, not legal advice — consult qualified counsel before making formal compliance decisions. This tool does not scan or inspect any website; every status here is one a person recorded. Enforcement cases cited are real public actions, shown for comparison only.
         </div>
       </div>
       <div class="main">${renderMain(site)}</div>
@@ -39,20 +39,15 @@ function render(){
 }
 
 function renderDocketList(){
-  if(state.sites.length===0 && !state.scanning){
-    return `<div class="docket-empty">No sites scanned yet. Add a site to begin the first audit.</div>`;
+  if(state.sites.length===0){
+    return `<div class="docket-empty">No entries yet. Add a product to start recording its compliance posture.</div>`;
   }
   let html = '';
-  if(state.scanning){
-    html += `<div class="docket-entry active"><div class="docket-num mono">NO. ${pad3(state.nextDocketNum)}</div>
-      <div class="docket-domain">${state.scanTargetDomain}</div>
-      <div class="docket-chips"><span class="chip-mini">scanning…</span></div></div>`;
-  }
   [...state.sites].reverse().forEach(s=>{
     const scan = s.scans[s.scans.length-1];
     const label = countryLabelFor(s);
     const chip = regKey=>{
-      const resolved = allSelfAttestedResolved(s, regKey);
+      const resolved = allRequirementsAssessed(s, regKey);
       const score = blendedScore(s, scan, regKey);
       return `<span class="chip-mini ${resolved?chipClass(score):'pending'}">${regKey} ${resolved?gradeLabel(score):'PENDING'}</span>`;
     };
@@ -75,7 +70,6 @@ function chipClass(score){
 }
 
 function renderMain(site){
-  if(state.scanning) return renderScanningView();
   if(state.showNewScanForm || !site) return renderNewScanForm(state.sites.length>0);
 
   const scan = site.scans[site.scans.length-1];
@@ -85,7 +79,6 @@ function renderMain(site){
   if(state.activeTab==='compliance') body = renderComplianceTab(site, scan);
   else if(state.activeTab==='recommendations') body = renderRecommendationsTab(site, scan);
   else if(state.activeTab==='legislation') body = renderLegislationTab(site);
-  else if(state.activeTab==='trust') body = renderTrustTab(scan);
   else if(state.activeTab==='competitors') body = renderCompetitorsTab(site, scan);
 
   const label = countryLabelFor(site);
@@ -96,16 +89,14 @@ function renderMain(site){
         <h1 class="disp">${site.domain}${label?`<span class="variant-tag">${label}</span>`:''}</h1>
         <div class="site-meta">
           NO. ${pad3(site.docketNum)} · ${site.kind==='code'
-            ? `SOURCE AUDIT · ${site.codeStats.analyzedFiles.toLocaleString()} FILES ANALYZED (${site.codeStats.skippedFiles.toLocaleString()} SKIPPED) · ${new Date(scan.timestamp).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`
-            : `LAST SCANNED ${new Date(scan.timestamp).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`}
-          ${prevScan ? renderDelta(site, prevScan) : ''}
+            ? `SOURCE AUDIT (ARCHIVED) · ${site.codeStats.analyzedFiles.toLocaleString()} FILES ANALYZED · ${new Date(scan.timestamp).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`
+            : `OPENED ${new Date(site.addedAt).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`}
         </div>
       </div>
       <div class="header-actions">
         <button class="export-btn" id="btn-export">↓ Export PDF report</button>
         <button class="ff-btn" id="btn-fastforward" title="Demo only: ages all self-attested items by 100 days">⏩ Simulate 100 days (demo)</button>
         <button class="export-btn" id="btn-export-audit">↓ Export audit log</button>
-        ${site.kind==='code' ? '' : `<button class="rescan-btn" id="btn-rescan">Re-scan now</button>`}
       </div>
     </div>
 
@@ -123,7 +114,6 @@ function renderMain(site){
       <button class="tab-btn ${state.activeTab==='compliance'?'active':''}" data-tab="compliance">COMPLIANCE RESULTS</button>
       <button class="tab-btn ${state.activeTab==='recommendations'?'active':''}" data-tab="recommendations">RECOMMENDATIONS</button>
       <button class="tab-btn ${state.activeTab==='legislation'?'active':''}" data-tab="legislation">UPCOMING LEGISLATION</button>
-      <button class="tab-btn ${state.activeTab==='trust'?'active':''}" data-tab="trust">PRIVACY TRUST</button>
       <button class="tab-btn ${state.activeTab==='competitors'?'active':''}" data-tab="competitors">VS. COMPETITORS</button>
     </div>
     ${body}
@@ -172,16 +162,16 @@ function renderNewScanForm(canCancel){
   ).join('');
   return `
     <div class="empty-state">
-      <h1 class="disp">${canCancel ? 'Start a new scan.' : 'Open a new case file.'}</h1>
-      <p>Enter a website to run a full-site crawl of its logged-out surface against GDPR and CCPA/CPRA, then fill out the self-attested checklist for what happens behind login.
-        Select every country this review should cover — it drives which regulations apply, the scoring breakdown, and which upcoming legislation is shown.</p>
+      <h1 class="disp">${canCancel ? 'Add another entry.' : 'Open a new case file.'}</h1>
+      <p>Add the product you're tracking. This tool doesn't crawl or inspect anything — it gives you the GDPR and CCPA/CPRA requirement set, and you record what's actually true for each one, with your reasoning kept alongside it.
+        Select every country this entry covers — it drives which regulations apply, the scoring breakdown, and which upcoming legislation is shown.</p>
       <form class="scan-form" id="new-scan-form">
         <label>Website</label>
         <div class="scan-form-row">
           <input type="text" id="new-scan-input" placeholder="e.g. acmehealth.com" autocomplete="off">
-          <button type="submit" class="go-btn">Scan site</button>
+          <button type="submit" class="go-btn">Add entry</button>
         </div>
-        <label>Countries this scan covers</label>
+        <label>Countries this entry covers</label>
         <div class="country-panel" style="margin-bottom:14px;">
           ${rows}
           <div class="country-footnote">* Switzerland is approximated to the GDPR baseline in this prototype — its own law (FADP) is distinct and has its own nuances.</div>
@@ -198,30 +188,10 @@ function renderNewScanForm(canCancel){
   `;
 }
 
-function renderScanningView(){
-  const existingSite = state.scanningExistingSiteId ? state.sites.find(s=>s.id===state.scanningExistingSiteId) : null;
-  const label = existingSite ? countryLabelFor(existingSite) : countryLabelForDraft();
-  const stepsHtml = SCAN_STEPS.map((s,i)=>{
-    let cls='scanning-step', mark='·';
-    if(i<state.scanStepIndex){ cls+=' done'; mark='✓'; }
-    else if(i===state.scanStepIndex){ cls+=' current'; mark='→'; }
-    return `<div class="${cls}"><span class="mark">${mark}</span>${s}</div>`;
-  }).join('');
-  return `
-    <div class="empty-state">
-      <h1 class="disp">Scanning ${state.scanTargetDomain}${label?` (${label})`:''}</h1>
-      <div class="scanning-box">
-        <div class="cursor mono" style="margin-bottom:10px;">Running full-site crawl of the logged-out surface — simulated for the prototype.</div>
-        ${stepsHtml}
-      </div>
-    </div>
-  `;
-}
-
 /* Tri-state collapse: an explicit prior toggle (true/false) always wins;
    with no override yet, Pass items default collapsed and everything else
-   (Fail/Partial/Pending/NA) defaults expanded, so failed and not-yet-attested
-   items are what you see without digging. */
+   (Fail/Partial/Pending/Unassessed/NA) defaults expanded, so what still
+   needs attention is what you see. */
 function isCollapsed(id, status){
   const explicit = state.collapsedItems[id];
   return explicit !== undefined ? explicit : status==='Pass';
@@ -229,17 +199,6 @@ function isCollapsed(id, status){
 
 function citeHover(item){
   return `<span class="cite-hover"><span class="req-code">${item.code}</span><span class="cite-tooltip"><div class="ct-title">${item.articleTitle}</div>${item.articleText}</span></span>`;
-}
-
-function evidenceHover(req, status){
-  const ev = req.evidence && req.evidence[status.toLowerCase()];
-  if(!ev) return '';
-  return `<span class="cite-hover evidence-hover"><span class="evidence-trigger">why?</span><span class="cite-tooltip evidence-tooltip">
-    <div class="ct-title">Simulated evidence</div>
-    <div class="evidence-quote">“${ev.snippet}”</div>
-    <div class="evidence-location">Found at: ${ev.location}</div>
-    <div class="evidence-disclaimer">Illustrative for this prototype — a live crawler would cite the actual page and exact text found.</div>
-  </span></span>`;
 }
 
 /* Real evidence hover for source-audited sites: the file/line/snippet hits
@@ -284,17 +243,26 @@ function renderComplianceTab(site, scan){
 
   if(regs.length===0) return `<p class="section-note">No regulation selected — toggle GDPR or CCPA/CPRA, or pick a country, above to see results.</p>`;
 
+  const progressHtml = regs.map(regKey=>{
+    const p = assessmentProgress(site, regKey);
+    return `<span class="assess-progress-chip ${p.done===p.total?'complete':''}">${regKey}: ${p.done}/${p.total} requirements assessed</span>`;
+  }).join('');
+  const banner = `<div class="honesty-banner">
+      <b>Nothing here is automatically detected.</b> This tool does not visit, crawl, or inspect ${site.domain} — every status below is one you or a colleague recorded, with the reason you gave. Requirements nobody has assessed show as <b>Unassessed</b> and earn no credit, so an untouched entry can never look compliant.
+      <div class="honesty-progress">${progressHtml}</div>
+    </div>`;
+
   const stampsHtml = regs.map(regKey=>{
     const {label} = regDefs(regKey);
     const score = blendedScore(site, scan, regKey);
-    const resolved = allSelfAttestedResolved(site, regKey);
+    const resolved = allRequirementsAssessed(site, regKey);
     const grade = resolved ? gradeLabel(score) : null;
     return `
       <div class="stamp-wrap">
         <div class="stamp ${resolved?tierClass(grade):'tier-pending'}"><div class="grade disp">${resolved?grade:'—'}</div><div class="glabel">${regKey}</div></div>
         <div>
           <div class="stamp-num mono">${score}/100${resolved?'':' (provisional)'}</div>
-          <div class="stamp-caption">${resolved ? topGapsCaption(site, scan, regKey) : 'Final grade withheld until every self-attested item below is completed or overridden.'}</div>
+          <div class="stamp-caption">${resolved ? topGapsCaption(site, scan, regKey) : `Provisional — ${assessmentProgress(site, regKey).total - assessmentProgress(site, regKey).done} requirement(s) still unassessed. A final grade is withheld until every one has a recorded status.`}</div>
         </div>
       </div>
     `;
@@ -318,14 +286,20 @@ function renderComplianceTab(site, scan){
         else if(eff==='Partial') note = `<div class="req-note partial">${verdict.rationale}${evHover}</div>${renderPrecedentInline(req)}`;
         else if(eff==='Pending') note = `<div class="req-note">${verdict.rationale}</div>`;
         else note = `<div class="req-note">${verdict.rationale}${evHover}</div>`;
+      } else if(eff==='Unassessed'){
+        /* Criteria to judge against — deliberately phrased as "counts as"
+           rather than "we found", because nothing has been inspected. */
+        note = `<div class="req-note unassessed">Nobody has recorded a status for this yet. Check it against your live site and record what you find.
+          <div class="assess-criteria"><b>Counts as Partial:</b> ${req.guide.partial}</div>
+          <div class="assess-criteria"><b>Counts as Fail:</b> ${req.guide.fail}</div></div>`;
       } else {
-        if(eff==='Fail') note = `<div class="req-note fail">${req.hints.fail}${evidenceHover(req, eff)}</div>${renderPrecedentInline(req)}`;
-        else if(eff==='Partial') note = `<div class="req-note partial">${req.hints.partial}${evidenceHover(req, eff)}</div>${renderPrecedentInline(req)}`;
+        if(eff==='Fail') note = `<div class="req-note fail">${req.guide.fail}</div>${renderPrecedentInline(req)}`;
+        else if(eff==='Partial') note = `<div class="req-note partial">${req.guide.partial}</div>${renderPrecedentInline(req)}`;
       }
       return `
         <div class="ledger-row">
           <div>
-            <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button><span class="source-tag ${isCodeSite?'code':''}">${isCodeSite?'Source audit':'Scanned'}</span>${citeHover(req)} ${req.text}</div>
+            <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button><span class="source-tag ${isCodeSite?'code':''}">${isCodeSite?'Source audit':'Publicly observable'}</span>${citeHover(req)} ${req.text}</div>
             ${!collapsed ? `
               <div class="layman-text">${req.layman}</div>
               ${note}
@@ -338,7 +312,7 @@ function renderComplianceTab(site, scan){
     }).join('');
 
     const checklistRows = checklist.map(item=>renderChecklistItem(site, scan, regKey, item)).join('');
-    const resolved = allSelfAttestedResolved(site, regKey);
+    const resolved = allRequirementsAssessed(site, regKey);
 
     return `
       <div class="reg-block">
@@ -347,15 +321,15 @@ function renderComplianceTab(site, scan){
           <button type="button" class="link-btn" style="margin-left:12px;" data-collapse-all="${allIds}">Collapse all</button>
           <button type="button" class="link-btn" style="margin-left:8px;" data-expand-all="${allIds}">Expand all</button>
         </div>
-        <div class="ledger-section-label">${isCodeSite ? 'Source-audited — real evidence from your uploaded code' : 'Scanned — automated, no action needed from you'}</div>
+        <div class="ledger-section-label">${isCodeSite ? 'Source-audited — real evidence from your uploaded code (archived)' : 'Publicly observable — check these on your live site and record what you find'}</div>
         <div class="ledger">${scannedRows}</div>
-        <div class="ledger-section-label">Self-attested — ${resolved ? 'complete' : 'required before a final grade is given'}</div>
+        <div class="ledger-section-label">Behind login — self-attested${resolved ? '' : ' · required before a final grade is given'}</div>
         <div class="ledger">${checklistRows}</div>
       </div>
     `;
   }).join('');
 
-  return `<div class="stamp-row">${stampsHtml}</div>${renderExposureSummary(site, scan)}${renderCountryBreakdown(site, scan)}${blocksHtml}`;
+  return `${banner}<div class="stamp-row">${stampsHtml}</div>${renderExposureSummary(site, scan)}${renderCountryBreakdown(site, scan)}${blocksHtml}`;
 }
 
 function renderExposureSummary(site, scan){
@@ -366,7 +340,7 @@ function renderExposureSummary(site, scan){
   ).join(' · ');
   return `
     <div class="exposure-summary">
-      <div class="exposure-label">Potential exposure — based on ${exp.caseCount} comparable public enforcement action${exp.caseCount===1?'':'s'} matching your current gaps</div>
+      <div class="exposure-label">Potential exposure — ${exp.caseCount} comparable public enforcement action${exp.caseCount===1?'':'s'} matching gaps you've recorded (unassessed requirements are excluded)</div>
       <div class="exposure-range mono">${rangesHtml}</div>
       <div class="exposure-note">Real, publicly reported enforcement cases cited for comparison — not a claim that this site committed these violations or has any connection to these companies.</div>
     </div>
@@ -396,7 +370,7 @@ function renderOverrideControl(site, itemId, rawCurrentStatus){
        the reason for overriding may no longer hold — surface it rather than
        letting a stale manual verdict quietly outrank fresh evidence. */
     const basisChanged = rawCurrentStatus !== undefined && rawCurrentStatus !== ov.previousStatus;
-    html += `<div class="override-note"><span class="override-badge">Overridden</span>${ov.previousStatus} → ${ov.status} — “${ov.explanation}”
+    html += `<div class="override-note"><span class="override-badge">${ov.previousStatus==='Unassessed' ? 'Assessed' : 'Overridden'}</span>${ov.previousStatus==='Unassessed' ? '' : ov.previousStatus+' → '}${ov.status} — “${ov.explanation}”
       ${basisChanged ? `<div class="override-basis-changed">⚠ This override was recorded when the underlying result was <b>${ov.previousStatus}</b>. The latest run says <b>${rawCurrentStatus}</b> — worth re-checking whether the override still applies.</div>` : ''}
       <div style="margin-top:6px;"><button class="link-btn" data-clear-override="${itemId}">Clear override</button></div></div>`;
   } else if(isOpen){
@@ -405,7 +379,7 @@ function renderOverrideControl(site, itemId, rawCurrentStatus){
       <div><select data-override-status-for="${itemId}">
         ${['Pass','Partial','Fail','NA'].map(s=>`<option value="${s}" ${draft.status===s?'selected':''}>${s}</option>`).join('')}
       </select></div>
-      <textarea class="checklist-textarea" data-override-explain-for="${itemId}" placeholder="Why is the system's read wrong? (required)">${draft.explanation}</textarea>
+      <textarea class="checklist-textarea" data-override-explain-for="${itemId}" placeholder="${rawCurrentStatus==='Unassessed' ? 'What did you check, and what did you find? (required)' : "Why is the system's read wrong? (required)"}">${draft.explanation}</textarea>
       ${draft.error ? `<div class="err">Please add a brief explanation before saving.</div>` : ''}
       <div style="margin-top:9px;">
         <button class="submit-btn" data-override-submit-for="${itemId}">Save override</button>
@@ -413,7 +387,7 @@ function renderOverrideControl(site, itemId, rawCurrentStatus){
       </div>
     </div>`;
   } else {
-    html += `<button class="link-btn" data-override-open-for="${itemId}">Override this result</button>`;
+    html += `<button class="link-btn" data-override-open-for="${itemId}">${rawCurrentStatus==='Unassessed' ? 'Record assessment' : 'Override this result'}</button>`;
   }
   if(historyCount >= 2 && !ov){
     html += `<div class="learn-flag">⚠ Overridden ${historyCount} times across scans in this session — detection logic for this requirement may need recalibrating.</div>`;
@@ -581,44 +555,13 @@ function renderLegislationTab(site){
   `;
 }
 
-function renderTrustTab(scan){
-  if(!scan.trust){
-    return `<p class="section-note">Privacy Trust measures how the site's privacy practices come across on its public-facing pages — this entry was audited from source code, which doesn't include that surface. Run a website scan of the deployed site to get a trust score.</p>`;
-  }
-  const grade = gradeLabel(scan.trust.score);
-  const catsHtml = TRUST_CATS.map(c=>{
-    const score = scan.trust.scores[c.id];
-    const tier = score>=80?'good':score>=55?'moderate':'weak';
-    const color = tier==='good'?'var(--verdigris)':tier==='moderate'?'var(--amber)':'var(--redline)';
-    return `
-      <div class="trust-cat">
-        <div class="trust-cat-head"><div class="trust-cat-name">${c.name}</div><div class="trust-cat-score mono">${score}/100</div></div>
-        <div class="bar-track"><div class="bar-fill" style="width:${score}%; background:${color};"></div></div>
-        <div class="trust-cat-note">${c.notes[tier]}</div>
-      </div>
-    `;
-  }).join('');
-  return `
-    <div class="stamp-row">
-      <div class="stamp-wrap">
-        <div class="stamp ${tierClass(grade)}"><div class="grade disp">${grade}</div><div class="glabel">TRUST</div></div>
-        <div>
-          <div class="stamp-num mono">${scan.trust.score}/100</div>
-          <div class="stamp-caption">Independent of legal compliance — measures how transparent the site’s privacy practices feel to an end user.</div>
-        </div>
-      </div>
-    </div>
-    ${catsHtml}
-  `;
-}
-
 function renderCompetitorManualEntry(site){
   const manualChips = (site.manualCompetitors||[]).map((m,i)=>
     `<span class="manual-country-chip">${m.name} <button type="button" class="chip-remove" data-remove-manual-competitor="${i}" aria-label="Remove ${m.name}">×</button></span>`
   ).join('');
   return `
     <div class="add-country-row">
-      <input type="text" id="competitor-manual-input" placeholder="Add a real competitor to compare against…" value="${state.manualCompetitorInput[site.id]||''}" autocomplete="off">
+      <input type="text" id="competitor-manual-input" placeholder="Add a competitor you're tracking…" value="${state.manualCompetitorInput[site.id]||''}" autocomplete="off">
       <button type="button" id="btn-competitor-manual-add" class="file-btn">+ Add</button>
     </div>
     ${manualChips ? `<div class="manual-country-chips">${manualChips}</div>` : ''}
@@ -626,34 +569,14 @@ function renderCompetitorManualEntry(site){
 }
 
 function renderCompetitorsTab(site, scan){
-  const eff = effectiveRegs(site);
-  const regs = []; if(eff.GDPR) regs.push('GDPR'); if(eff.CCPA) regs.push('CCPA');
   const manualEntry = renderCompetitorManualEntry(site);
-  if(regs.length===0) return `${manualEntry}<p class="section-note">No regulation selected — toggle GDPR or CCPA/CPRA above to see a comparison.</p>`;
-
-  const manualNames = (site.manualCompetitors||[]).map(m=>m.name);
-  const blocksHtml = regs.map(regKey=>{
-    const siteScore = blendedScore(site, scan, regKey);
-    const rows = [{label: `${site.domain} (this site)`, score: siteScore, isSite:true}]
-      .concat(competitorScores(site.domain, regKey, manualNames).map(r=>({...r, isSite:false})));
-    rows.sort((a,b)=>b.score-a.score);
-    const rowsHtml = rows.map(r=>{
-      const tier = r.score>=80?'good':r.score>=55?'moderate':'weak';
-      const color = tier==='good'?'var(--verdigris)':tier==='moderate'?'var(--amber)':'var(--redline)';
-      return `
-        <div class="trust-cat">
-          <div class="trust-cat-head"><div class="trust-cat-name">${r.isSite?`<b>${r.label}</b>`:r.label}</div><div class="trust-cat-score mono">${r.score}/100${r.isSite?'':' <span class="sim-tag">(simulated)</span>'}</div></div>
-          <div class="bar-track"><div class="bar-fill" style="width:${r.score}%; background:${color};"></div></div>
-        </div>
-      `;
-    }).join('');
-    return `<div class="reg-block"><h3 class="disp">${regKey}</h3><div class="reg-sub">${manualNames.length ? 'Real competitor names, simulated scores' : 'Generic placeholders — add real competitors above'}</div>${rowsHtml}</div>`;
-  }).join('');
-
+  const names = (site.manualCompetitors||[]).map(m=>m.name);
   return `
-    <p class="rec-intro">A rough, directional comparison — every score except "${site.domain} (this site)" is simulated for this prototype, including for any real company names you've added above. There's no real crawl of competitor sites in this tool yet, so a real name doesn't mean a real assessment.</p>
+    <p class="rec-intro">Competitors you're tracking. This tool has no way to assess another company's compliance — doing so would mean auditing their product the same way you audit yours — so no comparison scores are shown. Previous versions displayed simulated numbers next to these names; those were removed in v0.9.0 because a fabricated score attached to a real company is a claim this tool can't stand behind.</p>
     ${manualEntry}
-    ${blocksHtml}
+    ${names.length
+      ? `<div class="section-note">Tracking ${names.length} competitor${names.length===1?'':'s'}. Assessing them would require running each through the same requirement checklist you use for your own product.</div>`
+      : `<p class="section-note">None added yet.</p>`}
   `;
 }
 
@@ -715,7 +638,10 @@ function auditItemRow(site, scan, regKey, item, source){
         provenance = `Source audit — ${v.rationale}`;
       }
     } else {
-      provenance = 'Automated scan of the logged-out surface (simulated in this prototype).';
+      const ov0 = site.overrides[item.id];
+      provenance = ov0
+        ? `Assessed by a person ${auditTs(ov0.timestamp)} — publicly-observable requirement, checked manually. No automated inspection was performed.`
+        : 'Not yet assessed — counts as zero credit. No automated inspection is performed for this requirement.';
     }
   } else {
     if(st && st.finalized){
@@ -753,14 +679,14 @@ function buildAuditLogHTML(site){
     <div class="pr-meta">
       ${site.domain}${label?` · ${label}`:''} · Docket No. ${pad3(site.docketNum)}<br>
       Entry opened ${auditTs(site.addedAt)} · Log generated ${auditTs(Date.now())}<br>
-      Assessment method: ${site.kind==='code' ? 'source audit of an uploaded codebase (real analysis)' : 'automated scan of the logged-out surface (simulated in this prototype)'} + self-attestation<br>
+      Assessment method: ${site.kind==='code' ? 'archived source audit of an uploaded codebase (real analysis), plus self-attestation' : 'manual assessment and self-attestation — no website was scanned or inspected'}<br>
       Strictness setting at time of export: <b>${lvl.label}</b> — ${lvl.blurb}
     </div>`;
 
-  html += `<h2>Assessment runs</h2>`;
+  html += `<h2>Record history</h2>`;
   site.scans.forEach((s,i)=>{
     html += `<div class="pr-item">Run ${i+1} of ${site.scans.length} — ${auditTs(s.timestamp)}${
-      s.source==='code' ? ` · source audit${site.codeStats ? ` · ${site.codeStats.analyzedFiles.toLocaleString()} files analyzed, ${site.codeStats.skippedFiles.toLocaleString()} skipped` : ''}` : ' · simulated site scan'}</div>`;
+      s.source==='code' ? ` · source audit${site.codeStats ? ` · ${site.codeStats.analyzedFiles.toLocaleString()} files analyzed, ${site.codeStats.skippedFiles.toLocaleString()} skipped` : ''}` : ' · entry opened (no automated inspection)'}</div>`;
   });
 
   if(regs.length === 0){
@@ -770,12 +696,12 @@ function buildAuditLogHTML(site){
   regs.forEach(regKey=>{
     const {scanned, checklist, label:regLabel} = regDefs(regKey);
     const score = blendedScore(site, scan, regKey);
-    const resolved = allSelfAttestedResolved(site, regKey);
+    const resolved = allRequirementsAssessed(site, regKey);
     html += `<h2>${regKey} — ${score}/100 ${resolved ? `(${gradeLabel(score)})` : '(provisional — final grade pending self-attestation)'}</h2>`;
     html += `<div class="pr-meta">${regLabel}</div>`;
-    html += `<h3>Assessed automatically</h3>`;
+    html += `<h3>${site.kind==='code' ? 'Source-audited (archived)' : 'Publicly observable — manually assessed'}</h3>`;
     scanned.forEach(item=>{ html += auditItemRow(site, scan, regKey, item, 'scanned'); });
-    html += `<h3>Self-attested</h3>`;
+    html += `<h3>Behind login — self-attested</h3>`;
     checklist.forEach(item=>{ html += auditItemRow(site, scan, regKey, item, 'attested'); });
   });
 
@@ -788,7 +714,7 @@ function buildAuditLogHTML(site){
     });
   }
 
-  html += `<p class="pr-meta" style="margin-top:24px;">This log records what this tool observed and what was attested to it, with timestamps and stated reasons. It is informational guidance, not legal advice, and not a certification of compliance. Automated findings are ${site.kind==='code' ? 'pattern-based evidence of implementation, not proof of correctness' : 'simulated in this prototype'}; self-attested items reflect what a user asserted. Enforcement figures cited elsewhere in this tool are real public cases used for comparison, not findings about this entry.</p>`;
+  html += `<p class="pr-meta" style="margin-top:24px;">This log records what this tool observed and what was attested to it, with timestamps and stated reasons. It is informational guidance, not legal advice, and not a certification of compliance. ${site.kind==='code' ? 'Archived source-audit findings are pattern-based evidence of implementation, not proof of correctness;' : 'No automated inspection was performed;'} self-attested items reflect what a user asserted. Enforcement figures cited elsewhere in this tool are real public cases used for comparison, not findings about this entry.</p>`;
   return html;
 }
 
@@ -804,10 +730,10 @@ function buildPrintReportHTML(site, scan){
 
   regs.forEach(regKey=>{
     const score = blendedScore(site, scan, regKey);
-    const resolved = allSelfAttestedResolved(site, regKey);
+    const resolved = allRequirementsAssessed(site, regKey);
     html += resolved
       ? `<h2>${regKey} — ${score}/100 (${gradeLabel(score)})</h2>`
-      : `<h2>${regKey} — ${score}/100 (provisional — final grade pending self-attestation)</h2>`;
+      : `<h2>${regKey} — ${score}/100 (provisional — ${assessmentProgress(site, regKey).total - assessmentProgress(site, regKey).done} requirement(s) unassessed)</h2>`;
     const gaps = gapItems(site, scan, regKey);
     if(gaps.length===0){
       html += `<div class="pr-item">No material gaps found.</div>`;
@@ -826,15 +752,6 @@ function buildPrintReportHTML(site, scan){
     html += `<div class="pr-item">${c.item.text} — ${SEV_LABEL[c.item.sev]}${fine ? `<br><span class="pr-meta">Comparable enforcement action: ${fine.who}, ${fine.fine} (${fine.regulator}, ${fine.year}) — real public case cited for comparison, not a claim about this site</span>` : ''}</div>`;
   });
 
-  if(scan.trust){
-    html += `<h2>Privacy Trust — ${scan.trust.score}/100 (${gradeLabel(scan.trust.score)})</h2>`;
-    TRUST_CATS.forEach(c=>{
-      html += `<div class="pr-item">${c.name}: ${scan.trust.scores[c.id]}/100</div>`;
-    });
-  } else {
-    html += `<h2>Privacy Trust</h2><div class="pr-item">Not applicable — this entry was audited from source code rather than the public site.</div>`;
-  }
-
-  html += `<p class="pr-meta" style="margin-top:24px;">This report provides informational guidance only, not legal advice. Enforcement figures cite real, publicly reported cases for comparison only — not a finding about this site. Generated by a prototype — self-attested items and their AI-style review are simulated.</p>`;
+  html += `<p class="pr-meta" style="margin-top:24px;">This report provides informational guidance only, not legal advice. No website was scanned or inspected to produce it: every status reflects an assessment a person recorded. Enforcement figures cite real, publicly reported cases for comparison only — not findings about this site.</p>`;
   return html;
 }

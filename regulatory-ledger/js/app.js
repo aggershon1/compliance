@@ -5,10 +5,6 @@ const state = {
   sites: [],
   selectedSiteId: null,
   activeTab: 'compliance',
-  scanning: false,
-  scanStepIndex: 0,
-  scanTargetDomain: '',
-  scanningExistingSiteId: null,
   showNewScanForm: false,
   newScanCountries: [],        // country codes checked in the New Scan form
   newScanManualCountries: [],  // [{name}] added via free-text in the New Scan form
@@ -32,14 +28,6 @@ const state = {
   lastLoadedAt: null,            // timestamp of the restored session, if any
   importMessage: null,           // result banner after an import attempt
 };
-
-const SCAN_STEPS = [
-  'Crawling site structure (logged-out pages only)…',
-  'Reading privacy policy & terms…',
-  'Inventorying cookies & trackers…',
-  'Comparing against selected regulations…',
-  'Compiling risk & trust assessment…',
-];
 
 function cleanDomain(input){
   let d = input.trim().toLowerCase();
@@ -161,7 +149,7 @@ function attachHandlers(site){
       return;
     }
     const val = document.getElementById('new-scan-input').value;
-    if(val && val.trim()) startScan(cleanDomain(val));
+    if(val && val.trim()) createEntry(cleanDomain(val));
   });
 
   document.querySelectorAll('[data-site-id]').forEach(el=>{
@@ -172,9 +160,6 @@ function attachHandlers(site){
       render();
     });
   });
-
-  const rescanBtn = document.getElementById('btn-rescan');
-  if(rescanBtn) rescanBtn.addEventListener('click', ()=>{ if(site && site.kind!=='code') startScan(site.domain, site); });
 
   const exportBtn = document.getElementById('btn-export');
   if(exportBtn) exportBtn.addEventListener('click', ()=>{
@@ -468,53 +453,27 @@ function attachHandlers(site){
   });
 }
 
-function startScan(domain, existingSite){
-  state.scanning = true;
-  state.scanningExistingSiteId = existingSite ? existingSite.id : null;
-  state.scanTargetDomain = domain;
-  state.scanStepIndex = 0;
+/* Creating an entry no longer "scans" anything — there is no crawler, and
+   pretending otherwise is exactly what produced fabricated findings about
+   real sites. An entry starts with every requirement Unassessed; you record
+   what's actually true, and the audit log keeps the provenance. */
+function createEntry(domain){
+  const id = 'site-' + Date.now();
+  const docketNum = state.nextDocketNum++;
+  state.sites.push({
+    id, domain, docketNum,
+    kind: 'manual',
+    addedAt: Date.now(),
+    manualRegs: defaultManualRegsFromCountries(state.newScanCountries),
+    selectedCountries: [...state.newScanCountries],
+    manualCountries: state.newScanManualCountries.map(m=>({...m})),
+    manualCompetitors: [],
+    scans: [{timestamp: Date.now(), scanned:{GDPR:{}, CCPA:{}}, trust:null, source:'manual'}],
+    checklistState: {},
+    overrides: {},
+  });
+  state.selectedSiteId = id;
   state.showNewScanForm = false;
-  render();
-
-  const stepInterval = setInterval(()=>{
-    state.scanStepIndex++;
-    if(state.scanStepIndex >= SCAN_STEPS.length){
-      clearInterval(stepInterval);
-      finishScan(domain, existingSite);
-      return;
-    }
-    render();
-  }, 480);
-}
-
-function finishScan(domain, existingSite){
-  const salt = String(Date.now());
-  const countryCodes = existingSite ? existingSite.selectedCountries : state.newScanCountries;
-  const manualCountries = existingSite ? existingSite.manualCountries : state.newScanManualCountries;
-  const posture = simPostureFor(countryCodes, manualCountries);
-  const scan = runScan(domain, posture, salt);
-
-  if(existingSite){
-    existingSite.scans.push(scan);
-    state.selectedSiteId = existingSite.id;
-  } else {
-    const id = 'site-' + Date.now();
-    const docketNum = state.nextDocketNum++;
-    state.sites.push({
-      id, domain, docketNum,
-      addedAt: Date.now(),
-      manualRegs: defaultManualRegsFromCountries(countryCodes),
-      selectedCountries: [...countryCodes],
-      manualCountries: manualCountries.map(m=>({...m})),
-      manualCompetitors: [],
-      scans: [scan],
-      checklistState: {},
-      overrides: {},
-    });
-    state.selectedSiteId = id;
-  }
-  state.scanning = false;
-  state.scanningExistingSiteId = null;
   state.activeTab = 'compliance';
   render();
 }

@@ -2,6 +2,30 @@
 
 All notable changes to this prototype are logged here.
 
+## [0.9.0] — Remove every fabricated result
+
+A user reported the tool as "buggy" for not properly scanning a real privacy policy and reporting things as missing that were plainly present. It wasn't a scanning bug: **the app never scanned anything.** Scanned statuses came from `seededRandom(domain)` — a hash of the domain string — and the accompanying "evidence" was a hardcoded string. For `gdpr-s3`, that string read *"(No privacy policy found at /privacy or linked from the footer)"*, displayed whenever the hash landed on Fail, for any site.
+
+That is a fabricated factual claim about a real company's real website, dressed in the visual language of a real audit (progress steps reading "Reading privacy policy & terms…", an "evidence" hover quoting a snippet and citing a page location). The "Simulated evidence" label in the tooltip was not remotely enough. This release removes the capacity to fabricate rather than labelling it better.
+
+### Removed
+- **The simulated crawler**, and with it `seededRandom`, `statusFor`, and `runScan`. Creating an entry no longer pretends to scan; it opens a record.
+- **All fabricated evidence snippets** (12 blocks) that asserted specific observations about sites nobody looked at.
+- **The Privacy Trust score** — five category scores generated from the same pseudo-random source.
+- **Competitor comparison scores** — simulated numbers displayed beside real company names, which is a claim about those companies the tool cannot stand behind. Competitors can still be tracked by name.
+
+### Changed
+- **Publicly-observable requirements are now assessed by a person.** Each starts as **Unassessed**, shows the criteria for Partial and Fail phrased as *"counts as"* rather than as findings, and is recorded through the existing explanation-required control. Nothing is claimed until someone claims it.
+- **Unattested behind-login items now report Unassessed, not Fail.** They already earned zero credit; the change is that the tool no longer asserts non-compliance nobody verified. Scores are unaffected.
+- **A final grade requires every requirement assessed**, across both tracks — previously only the checklist gated it, because the observable track was auto-filled with simulated results. Progress chips show how many of each regulation's requirements have a recorded status.
+- **Potential-exposure figures exclude unassessed requirements.** Unknown is not a finding, so it doesn't attract a comparable fine.
+- A persistent banner on every entry states plainly that nothing is automatically detected, and the audit log and PDF report both record that no website was inspected.
+
+### Notes
+- **The score's meaning changed.** It was never a measurement, but it now visibly reflects only what you've recorded — an untouched entry reads 0/100 with everything Unassessed, instead of a confident-looking C+ assembled from a hash.
+- Nothing was lost from saved sessions: overrides, attestations, and notes all survive, and no storage-version bump was needed.
+- The requirement set, citations, real enforcement cases, strictness dial, persistence, and audit log are unchanged — the parts of this tool grounded in something real were always the manual ones, and they're now the whole product.
+
 ## [0.8.0] — Strictness dial, exportable audit log, repo upload retired
 
 Ships the three roadmap items that needed no backend.
