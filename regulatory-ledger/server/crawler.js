@@ -17,7 +17,8 @@ const net = require('node:net');
 const FETCH_TIMEOUT_MS = 12000;
 const MAX_BYTES = 2_000_000;
 const MAX_REDIRECTS = 5;
-const MAX_POLICY_PAGES = 4;
+const MAX_POLICY_PAGES = 4;      // per discovery level
+const MAX_TOTAL_PAGES = 10;      // hard ceiling across the whole crawl
 const USER_AGENT = 'RegulatoryLedger/1.0 (compliance self-audit; +https://github.com/aggershon1/compliance)';
 
 /* ---- SSRF protection --------------------------------------------------
@@ -191,6 +192,8 @@ function extractScripts(html){
 const POLICY_HINTS = [
   /privacy/i, /data[-\s]?protection/i, /cookie/i, /do[-\s]?not[-\s]?sell/i,
   /your[-\s]privacy[-\s]choices/i, /legal/i, /gdpr/i, /ccpa/i,
+  /terms/i, /notice/i, /opt[-\s]?out/i, /california/i, /consumer[-\s]rights/i,
+  /limit[-\s]the[-\s]use/i, /sensitive[-\s]information/i,
 ];
 function discoverPolicyLinks(links, baseUrl){
   const base = new URL(baseUrl);
@@ -253,28 +256,53 @@ async function crawl(target){
   });
   if(homeRes.truncated) notes.push('The homepage was larger than the size cap and was truncated.');
 
+  /* Two levels, deliberately. Sites routinely link only "Privacy Policy"
+     from the homepage and keep the California notice, cookie policy and
+     opt-out pages one click further in — a single level misses exactly the
+     documents several CCPA requirements depend on. Depth stops at two:
+     enough to reach real sub-policies, not so much that this becomes a
+     general-purpose spider hammering someone's site. */
+  const seenUrls = new Set(pages.map(p => p.url));
   const policyLinks = discoverPolicyLinks(homeLinks, homeRes.url);
   if(policyLinks.length === 0){
     notes.push('No privacy/legal links were found on the homepage, so policy text could not be retrieved. Requirements that depend on policy wording are reported as not determinable rather than failing.');
   }
-  for(const pl of policyLinks){
-    try{
-      const r = await fetchPage(pl.url);
-      if(!r.html){ notes.push(`Skipped ${pl.url} (${r.skipped || 'status '+r.status}).`); continue; }
-      pages.push({
-        role: 'policy',
-        url: r.url,
-        status: r.status,
-        title: extractTitle(r.html),
-        linkText: pl.linkText,
-        text: extractText(r.html),
-        links: extractLinks(r.html, r.url),
-        scripts: extractScripts(r.html),
-        truncated: r.truncated,
-      });
-    }catch(e){
-      notes.push(`Could not retrieve ${pl.url}: ${e.message}`);
+  let frontier = policyLinks;
+  for(let depth = 0; depth < 2 && frontier.length; depth++){
+    const nextFrontier = [];
+    for(const pl of frontier){
+      if(pages.length >= MAX_TOTAL_PAGES) break;
+      if(seenUrls.has(pl.url)) continue;
+      seenUrls.add(pl.url);
+      try{
+        const r = await fetchPage(pl.url);
+        if(!r.html){ notes.push(`Skipped ${pl.url} (${r.skipped || 'status '+r.status}).`); continue; }
+        const pageLinks = extractLinks(r.html, r.url);
+        pages.push({
+          role: 'policy',
+          url: r.url,
+          status: r.status,
+          depth: depth + 1,
+          title: extractTitle(r.html),
+          linkText: pl.linkText,
+          text: extractText(r.html),
+          links: pageLinks,
+          scripts: extractScripts(r.html),
+          truncated: r.truncated,
+        });
+        if(depth === 0){
+          for(const cand of discoverPolicyLinks(pageLinks, r.url)){
+            if(!seenUrls.has(cand.url)) nextFrontier.push(cand);
+          }
+        }
+      }catch(e){
+        notes.push(`Could not retrieve ${pl.url}: ${e.message}`);
+      }
     }
+    frontier = nextFrontier;
+  }
+  if(pages.length >= MAX_TOTAL_PAGES){
+    notes.push(`Stopped at the ${MAX_TOTAL_PAGES}-page ceiling; some linked policy pages may not have been retrieved.`);
   }
 
   return {
