@@ -62,6 +62,36 @@ Requires a real model call, hence a backend to hold the API key. The same infras
 
 ---
 
+## Agents
+
+Four places in this app are genuinely agentic — a model given tools and autonomy over its own next step, not a single call with a nice prompt. They are listed in build order, which is also increasing order of how much damage a bad output could do.
+
+### 1. Crawl navigation — spiked, not measured
+
+`POLICY_HINTS` in `server/crawler.js` only finds pages whose wording we anticipated; a site filing its CCPA supplement under "Additional Disclosures" is invisible to it, and the fix is always a human adding another regex. An agent given a `fetch_page` tool and a goal follows the links a person would.
+
+A spike lives in [`server/agent/`](./server/agent/README.md) with an eval harness comparing it against the hint list. The heuristic scores 2/4 on the local fixture; the agent side is unmeasured until someone runs it with an API key. Not wired into the app — measuring first is the point.
+
+The blast radius is what makes this the right first one: the agent decides *where to look* and never what anything means. Judgment stays in `js/crawl.js` against retrieved text.
+
+### 2. Attestation interviewer
+
+Replaces the keyword heuristic in `js/reviewer.js`, which is the weakest part of the product and covers the half of GDPR that a crawl can never see. Instead of matching keywords against a typed description, it conducts the interview a regulator would — "does that delete the therapist's session notes, or just the profile?" — and keeps going until it can either write a defensible attestation or name what is still missing. Real state, model-chosen next question.
+
+### 3. Proposal review
+
+Roadmap item 2 above, the "you → tool" direction. Only agentic if it can check its own work: pull the article text, look at what the crawl found, check what's already attested. Otherwise it's a single call, which is fine.
+
+### 4. Legislation monitoring
+
+Roadmap item 1 above, as a scheduled agent. Needs the most non-agent plumbing (feeds, accounts, delivery), so it's last.
+
+### The constraint that applies to all four
+
+An autonomous loop drifts into confident narration — reporting "I reviewed the policy and found no opt-out" when what happened was a 404. That is the v0.9.0 failure with a new cause, and prompting against it is not a control. The pattern established in the spike is the standard for the rest: **give the model no field in which to express a conclusion it isn't entitled to, and gate every claim against a log of what was actually retrieved.** Design the tool surface so the bad output has nowhere to go.
+
+---
+
 ## Later
 
 - **Headless-browser crawling.** The v1.0.0 crawler fetches pages, which cannot show whether trackers fire before consent or whether "Reject All" is as easy as "Accept All" — the substance of the consent requirement. Driving a real browser (Playwright) in the crawl service would close that gap.
