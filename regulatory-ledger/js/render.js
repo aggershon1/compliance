@@ -733,9 +733,9 @@ function renderDiscoverySetting(){
   const svc = state.crawlBackend || {};
   const agentOk = !!(svc.agent && svc.agent.available);
   const opts = [
+    ['links', 'Link patterns', 'Matches link text against known privacy wording. Free, and on the sites measured so far it finds the same pages the agent does.'],
+    ['agent', 'Navigator agent', 'A model reads the site and follows the links a person would. Costs tokens per crawl — worth trying when a crawl comes back thin.'],
     ['auto',  'Automatic', agentOk ? 'Uses the navigator agent, falling back to link patterns.' : 'The agent isn’t available, so this uses link patterns.'],
-    ['agent', 'Navigator agent', 'A model reads the site and follows the links a person would. Costs tokens per crawl.'],
-    ['links', 'Link patterns', 'Matches link text against known privacy wording. Free, but only finds wording we anticipated.'],
   ];
   return `
     <div class="settings-dropdown-title" style="margin-top:14px;">Page discovery</div>

@@ -2,6 +2,22 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.1.2] — The agent measured: parity, so link patterns is the default
+
+The navigator shipped in v1.1.0 unmeasured, with a note not to quote a number for it. Here is the number.
+
+### Measured
+- On the local fixture, the hint list scores **2/4** and the agent **4/4** — but that fixture was built to exhibit the failure mode, so it flatters the agent by construction.
+- On **betterhelp.com**, both return the **same four pages**. The agent found nothing the regex list missed.
+
+betterhelp.com does not have the problem the navigator solves: its privacy content isn't filed under vocabulary the hint list failed to anticipate. One site is one site, and a site that *does* bury its state notice under an unexpected name would still defeat the hint list — so the agent stays, but it is not the default.
+
+Worth recording alongside it: running the eval at all is what surfaced the duplicate-fetch bug fixed in v1.1.1. A cheap regression was costing more real coverage than the agent added.
+
+### Changed
+- **Page discovery defaults to link patterns**, not the agent. Running a model by default costs tokens for no measured gain. The agent is one click away in Settings for sites where a crawl comes back thin, and `server/agent/eval.js` is the per-site check.
+- README, ROADMAP and the agent README now carry the measured result rather than "unmeasured".
+
 ## [1.1.1] — Stop crawling the same page three times
 
 A run against betterhelp.com opened seven pages that were four unique documents: `/privacy` three times, `/terms` twice.

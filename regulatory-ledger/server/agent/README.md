@@ -105,11 +105,21 @@ Against the local fixture the hint list scores **2/4** and opens three irrelevan
 
 It misses the state notice because that site files it under "Additional Disclosures for U.S. State Residents" — no hint regex matches — and so the opt-out page linked from it disappears too.
 
-**The agent side has not been measured against a real model.** Every mechanism is verified offline; whether the model picks better links than the regex list is open until someone runs `node eval.js` with a key. Don't quote a number for it until you've produced one. And note the fixture was built to exhibit a known failure mode, so it will always flatter the agent — the measurement that counts is `node eval.js betterhelp.com`.
+Note the fixture was built to exhibit that failure mode, so it will always flatter the agent. The measurement that counts is a real site.
+
+### The real-site result: parity
+
+On **betterhelp.com**, after the v1.1.1 dedupe fix, both methods return the same four pages. The agent found nothing the regex list missed.
+
+That is the honest state of this feature: **on the one real site measured, agent discovery is not worth its cost.** betterhelp.com does not have the problem the agent solves — its privacy content isn't filed under vocabulary the hint list failed to anticipate. The fixture gap is real but constructed, and one site is one site; a site that *does* bury its state notice under an unexpected name would still defeat the hint list, which is why the agent stays available rather than being removed.
+
+The practical read: leave discovery on **Link patterns** unless a crawl comes back visibly thin, then try the agent on that site and compare. `eval.js` is how you check, per site, for the price of one run.
 
 ## Model choice
 
 Build on `claude-opus-5`, then measure down. Starting cheap gives you no baseline: when it misses the state notice you can't tell whether that's the model or your prompt. Get it working at the top, then `AGENT_MODEL=claude-haiku-4-5 node eval.js` and see whether the score holds.
+
+Given the parity result above, the cheaper question comes first: measure whether the agent earns its place on *your* site at all before tuning which model runs it.
 
 `AGENT_THINKING` is off by default. Neither agent is reasoning-heavy, and leaving it off keeps a model swap a one-variable change — the thinking parameter has a different shape on Haiku 4.5 (pre-4.6) than on 4.6+ models, and `client.js` branches on that so enabling it doesn't 400 when you switch.
 
