@@ -30,7 +30,11 @@ const state = {
   crawlBackend: null,            // {url, available, agent} — detected at boot
   crawling: false,               // a crawl is in flight
   crawlError: null,
-  discoveryMode: 'auto',         // how the crawl picks pages: auto | agent | links
+  /* Link patterns by default: measured against betterhelp.com the agent
+     returns the same pages, so running it by default would spend tokens
+     for no observed gain. It stays one click away for sites where the
+     crawl comes back thin. */
+  discoveryMode: 'links',        // how the crawl picks pages: auto | agent | links
   reviewing: {},                 // itemId -> true while an attestation review is in flight
 };
 

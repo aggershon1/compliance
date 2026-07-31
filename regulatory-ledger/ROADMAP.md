@@ -67,9 +67,13 @@ The infrastructure this needed now exists: `server/` holds the API key, and `ser
 
 Four places in this app are genuinely agentic — a model given tools and autonomy over its own next step, not a single call with a nice prompt. They are listed in build order, which is also increasing order of how much damage a bad output could do.
 
-### 1. Crawl navigation — shipped v1.1.0, unmeasured
+### 1. Crawl navigation — shipped v1.1.0, measured, parity
 
-Shipped as the navigator agent. Every mechanism is tested offline; whether the model actually picks better links than the regex list is still open, because measuring it needs an API key. `server/agent/eval.js` runs both methods against the same target and scores them — the heuristic gets 2/4 on the local fixture. **Run it against betterhelp.com before treating the agent as the better option.**
+Shipped as the navigator agent, and now actually measured. On the local fixture the heuristic scores 2/4 and the agent 4/4 — but that fixture was built to exhibit the failure mode. **On betterhelp.com both return the same four pages.**
+
+So the agent does not currently earn its cost on the site this tool was built for. It stays available (a site that *does* bury its state notice under an unexpected name would still defeat the hint list) but Link patterns is the sensible default, with `eval.js` as the per-site check.
+
+The more interesting finding came out of running the eval at all: the crawl was fetching `/privacy` three times, which v1.1.1 fixed. A cheap regression cost more real coverage than the agent added.
 
 ### 2. Attestation interviewer — shipped v1.1.0
 
