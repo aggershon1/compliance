@@ -28,15 +28,25 @@ async function checkCrawlBackend(){
     const res = await fetch(crawlBackendUrl() + '/api/health', {signal: ctrl.signal});
     clearTimeout(t);
     const body = await res.json();
-    state.crawlBackend = {url: crawlBackendUrl(), available: !!body.ok, version: body.version};
+    state.crawlBackend = {
+      url: crawlBackendUrl(),
+      available: !!body.ok,
+      version: body.version,
+      /* Whether the service can reach a model is separate from whether it
+         can fetch pages. The app offers different capabilities for each and
+         says which is missing rather than degrading silently. */
+      agent: body.agent || {available: false, reason: 'This crawl service predates agent support.'},
+    };
   }catch(e){
-    state.crawlBackend = {url: crawlBackendUrl(), available: false};
+    state.crawlBackend = {url: crawlBackendUrl(), available: false, agent: {available: false}};
   }
   return state.crawlBackend.available;
 }
 
-async function requestCrawl(domain){
-  const res = await fetch(`${crawlBackendUrl()}/api/crawl?url=${encodeURIComponent(domain)}`);
+/* mode: 'auto' (agent when available), 'agent', or 'links'. */
+async function requestCrawl(domain, mode){
+  const q = `?url=${encodeURIComponent(domain)}&mode=${encodeURIComponent(mode || 'auto')}`;
+  const res = await fetch(crawlBackendUrl() + '/api/crawl' + q);
   return await res.json();
 }
 

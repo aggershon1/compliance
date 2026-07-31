@@ -2,6 +2,35 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.1.0] — Agents: navigation and attestation review
+
+Two model-backed agents, both optional, both degrading cleanly to what the app did before. The first replaces a heuristic that needed hand-tuning per site; the second replaces the last remaining simulated verdict in the product.
+
+### Added
+- **Navigator agent.** Finds a site's privacy documents by reading it — given one `fetch_page` tool and a goal, it follows the links a person would. It exists because `POLICY_HINTS` only finds vocabulary someone anticipated: a site filing its CCPA supplement under "Additional Disclosures for U.S. State Residents" was invisible to it, and the fix was always a human adding another regex. `crawlWithAgent()` returns exactly the shape `crawl()` returns, so the rule engine consumes either identically.
+- **Attestation interviewer.** Replaces the keyword heuristic that counted `pos`/`neg` words and called the result a verdict — the weakest part of the product, covering the half of GDPR/CCPA no crawl can see. It reads the citation, asks the follow-up a regulator would ("does that delete the therapist's session notes, or only the profile?"), and records a status citing the user's own words. Output is shown in four separate registers: the judgment, the basis, the gaps, and the interview itself.
+- **Page discovery setting** — Automatic / Navigator agent / Link patterns, in Settings. The two have genuinely different costs, and pinning to link patterns is how you get a free re-crawl.
+- **`GET /api/health` reports agent capability**, `GET /api/crawl` takes `?mode=`, and `POST /api/attest` is new. The service still starts and still crawls with no `node_modules` and no API key.
+- Test suites for both agents and the HTTP surface (`npm test` in `server/agent`), plus a browser smoke test (`ui.test.js`). All run offline against a scripted stub — no key, no network.
+
+### Changed
+- **Attestations record which reviewer produced them**, in the UI and in the exported audit log. A model interview and a keyword count are not the same evidence, and whoever reads the log later needs to know which they're looking at.
+- **Changing strictness no longer silently re-runs model-reviewed attestations.** That would mean a network call the user didn't ask for and a bill they didn't expect, and quietly changing a recorded verdict is worse than showing it's out of date. They're flagged, with a re-review button. Keyword-reviewed ones still re-evaluate as before.
+- The audit log's "assessment method" line said no website was scanned. That has been untrue since v1.0.0; it now reports the crawl and which discovery method chose the pages.
+- README's opening claim that the tool "performs no automated inspection of anything" was likewise stale. Corrected.
+
+### The honesty constraint
+An autonomous loop is exactly the kind of thing that regresses v0.9.0. Asked to find privacy pages, a model will report "I reviewed the privacy policy and found no opt-out link" when what happened was a 404; asked to review an attestation, it will assert product facts the user never stated. Prompting against either is not a control, so both agents are gated structurally:
+
+- Neither has a field in which to express the bad output. `report_pages` has nowhere to put a compliance verdict; `basis` takes quotes, not conclusions.
+- Every claim is checked against a log before it leaves the module. A reported URL absent from the fetch log is dropped; a quote absent from what the user wrote is dropped. If no quote survives, the attestation is marked **ungrounded** and its confidence forced to Low.
+- Budgets are enforced in code, not by asking. Past the follow-up limit the `ask_followup` tool is simply not offered.
+
+### Verified
+44 offline checks across the two agents, 12 more across the HTTP surface covering every degradation path (no SDK, no key, unreachable API), and 22 in a real browser including that model output is escaped rather than injected into `innerHTML`.
+
+**Not verified:** whether either model actually outperforms the heuristic it replaces. Every mechanism is tested; the judgment is not. `server/agent/eval.js` measures the navigator against the link-pattern baseline — the heuristic scores 2/4 on the local fixture — but running it needs an API key. No number should be quoted for the agent side until someone has produced one.
+
 ## [1.0.1] — Crawl reaches sub-policies
 
 Diagnosing a real run against a live site: the crawl retrieved only two pages, because the homepage linked just "Privacy Policy" and "Terms & Conditions". The HTML was complete (51 links) — so this was not a rendering or bot-protection problem, it was reach.

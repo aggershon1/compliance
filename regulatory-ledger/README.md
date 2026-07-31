@@ -29,17 +29,18 @@ See [`SPEC.md`](./SPEC.md) for the full spec and [`CHANGELOG.md`](./CHANGELOG.md
 
 ## What's real vs. mocked in this prototype
 
-This is a front-end prototype. It performs **no automated inspection of anything** — its value is the requirement set, the structured record you build against it, and the audit trail that comes out.
+This is a prototype, and the line between what it observes and what you tell it matters more here than the feature list. Two things are genuinely inspected: a site's **public pages**, fetched by the optional local crawl service, and nothing else. Everything behind a login is your account of it — reviewed against the citation, but never verified. Its value is the requirement set, the structured record you build against it, and the audit trail that comes out, which records for every status who or what produced it.
 
 | Piece | Status |
 |---|---|
 | UI/UX, navigation, scoring, record-keeping | Fully functional |
 | Website crawling | **Real**, via the optional local [crawl service](./server/README.md) — fetches the homepage and linked policy pages, and evidences every finding with a real quote and source URL. Limits are stated per requirement in the UI. |
+| Page discovery (which pages get crawled) | Two methods, and the UI says which ran. **Link patterns** match link text against known privacy wording — free, but only finds vocabulary that was anticipated. **The navigator agent** reads the site and follows the links a person would; needs an API key. Neither judges anything: they choose which pages to fetch. |
 | Tracker behaviour (do trackers fire before consent?) | **Not determinable by fetching.** The crawl reports which third-party scripts load; whether they fire pre-consent needs a real browser session and is flagged as such. |
 | Requirement statuses | **Real** — each one recorded by a person, with their stated reason and a timestamp, kept in the audit log |
 | Source audit of an uploaded codebase | **Retired in v0.8.0.** Was real (pattern-matching your actual files in-browser, with file/line citations). Existing entries keep their real evidence; no new ones can be created. |
 | GDPR / CCPA requirement text | Real regulatory citations and requirements |
-| Self-attested checklist review (status, confidence, follow-up questions) | Simulated — rule-based keyword matching, not a live model call (see `SPEC.md` Phase 1) |
+| Self-attested checklist review (status, confidence, follow-up questions) | **Real model review** when the crawl service is running with an API key: the interviewer reads the citation, asks follow-up questions, and records a status citing your own words verbatim. It cannot see your product — it judges whether the implementation *you describe* satisfies the requirement, and marks the attestation **ungrounded** if it can't quote you. Without a key it falls back to the original keyword heuristic, which is a drafting aid rather than a verdict; every attestation records which reviewer ran. |
 | Legislation database | Static seed data, illustrative |
 | Enforcement fines / precedent cases | **Real, publicly reported enforcement actions** (named company, regulator, year, amount), cited for comparison to the type of violation — not a claim that any scanned site committed them or is connected to those companies. As originally announced; some remain under appeal. |
 | vs. Competitors scores | **Removed in v0.9.0.** Competitors can be tracked by name, but no scores are shown — assessing another company would mean auditing their product the way you audit yours. |

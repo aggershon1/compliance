@@ -27,9 +27,11 @@ const state = {
   storageWarning: null,          // set by storage.js when a save can't fully succeed
   lastLoadedAt: null,            // timestamp of the restored session, if any
   importMessage: null,           // result banner after an import attempt
-  crawlBackend: null,            // {url, available} — detected at boot
+  crawlBackend: null,            // {url, available, agent} — detected at boot
   crawling: false,               // a crawl is in flight
   crawlError: null,
+  discoveryMode: 'auto',         // how the crawl picks pages: auto | agent | links
+  reviewing: {},                 // itemId -> true while an attestation review is in flight
 };
 
 /* Keeps any path the user typed. Entering "betterhelp.com/privacy" should
@@ -89,7 +91,19 @@ function reevaluateAttestations(){
       if(site.overrides[item.id]) return;
       const draft = state.drafts[draftKey(site.id, item.id)];
       if(!draft || !draft.description) return;
-      const result = reviewSubmission(item, draft.description, !!draft.screenshot, draft.followUpAnswer || '');
+
+      /* Model-reviewed attestations are not silently re-run. Re-reviewing
+         means a network call the user didn't ask for and a bill they
+         didn't expect, and quietly changing a recorded verdict behind
+         their back is worse than showing it's out of date. Flag it and
+         offer the button instead. */
+      if(st.reviewer === 'model'){
+        st.strictnessStale = st.strictnessAtReview !== undefined && st.strictnessAtReview !== state.strictness;
+        return;
+      }
+
+      const answers = (st.turns || []).map(t=>t.answer).filter(Boolean).join(' ');
+      const result = reviewSubmission(item, draft.description, !!draft.screenshot, answers || draft.followUpAnswer || '');
       if(result.needsFollowUp) return;   // wouldn't clear review at this strictness; leave the recorded verdict
       st.status = result.status;
       st.confidence = result.confidence;
@@ -319,6 +333,14 @@ function attachHandlers(site){
     render();
   });
 
+  document.querySelectorAll('input[name="discovery-mode"]').forEach(el=>{
+    el.addEventListener('change', (e)=>{
+      if(!e.target.checked) return;
+      state.discoveryMode = e.target.value;
+      render();
+    });
+  });
+
   document.querySelectorAll('[data-collapse-toggle]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const id = el.getAttribute('data-collapse-toggle');
@@ -368,28 +390,56 @@ function attachHandlers(site){
     });
   });
 
+  /* One handler drives the whole interview. Each click carries the answer
+     to the outstanding question (if there is one) into the transcript and
+     asks the reviewer to decide again — probe further, or record. The
+     reviewer, not the UI, decides which of those happens, and the
+     follow-up budget lives server-side so the loop always terminates. */
   document.querySelectorAll('[data-submit-for]').forEach(el=>{
-    el.addEventListener('click', ()=>{
+    el.addEventListener('click', async ()=>{
       const itemId = el.getAttribute('data-submit-for');
       const item = [...GDPR_CHECKLIST, ...CCPA_CHECKLIST].find(i=>i.id===itemId);
       const draft = getDraft(site.id, itemId);
-      const result = reviewSubmission(item, draft.description, !!draft.screenshot, '');
-      if(result.needsFollowUp){
-        site.checklistState[itemId] = { checked:true, finalized:false, needsFollowUp:true, followUpQuestion: result.followUpQuestion, sketch: result.sketch };
-      } else {
-        site.checklistState[itemId] = { checked:true, finalized:true, needsFollowUp:false, status: result.status, confidence: result.confidence, rationale: result.rationale, attestedAt: Date.now() };
-      }
-      render();
-    });
-  });
+      const prev = site.checklistState[itemId] || {};
+      const declining = el.hasAttribute('data-decline');
 
-  document.querySelectorAll('[data-finalize-for]').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const itemId = el.getAttribute('data-finalize-for');
-      const item = [...GDPR_CHECKLIST, ...CCPA_CHECKLIST].find(i=>i.id===itemId);
-      const draft = getDraft(site.id, itemId);
-      const result = reviewSubmission(item, draft.description, !!draft.screenshot, draft.followUpAnswer || 'no further detail provided');
-      site.checklistState[itemId] = { checked:true, finalized:true, needsFollowUp:false, status: result.status, confidence: result.confidence, rationale: result.rationale, attestedAt: Date.now() };
+      const turns = (prev.turns || []).slice();
+      if(prev.needsFollowUp && prev.followUpQuestion){
+        turns.push({
+          question: prev.followUpQuestion,
+          answer: declining ? '(the user chose not to answer)' : (draft.followUpAnswer || '(no answer given)'),
+        });
+      }
+
+      state.reviewing[itemId] = true;
+      site.checklistState[itemId] = {...prev, checked:true, turns};
+      render();
+
+      const result = await reviewAttested(item, draft.description, !!draft.screenshot, turns);
+      delete state.reviewing[itemId];
+
+      if(result.needsFollowUp && !declining){
+        site.checklistState[itemId] = {
+          checked:true, finalized:false, needsFollowUp:true, turns,
+          followUpQuestion: result.followUpQuestion,
+          whyItMatters: result.whyItMatters || null,
+          sketch: result.sketch || null,
+          reviewer: result.reviewer,
+          fallbackReason: result.fallbackReason || null,
+        };
+      } else {
+        site.checklistState[itemId] = {
+          checked:true, finalized:true, needsFollowUp:false, turns,
+          status: result.status, confidence: result.confidence, rationale: result.rationale,
+          basis: result.basis || [], gaps: result.gaps || [],
+          grounded: !!result.grounded,
+          reviewer: result.reviewer,
+          fallbackReason: result.fallbackReason || null,
+          strictnessAtReview: state.strictness,
+          attestedAt: Date.now(),
+        };
+      }
+      draft.followUpAnswer = '';
       render();
     });
   });
@@ -493,7 +543,7 @@ async function runCrawl(site){
   state.crawlError = null;
   render();
   try{
-    const raw = await requestCrawl(site.domain);
+    const raw = await requestCrawl(site.domain, state.discoveryMode);
     if(!raw.ok){
       state.crawlError = raw.error || 'The crawl did not complete.';
     } else {

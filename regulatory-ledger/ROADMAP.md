@@ -6,9 +6,9 @@ This is the forward-looking plan. For what's built today see [`CHANGELOG.md`](./
 
 ---
 
-## Where we actually are (through v1.0.0)
+## Where we actually are (through v1.1.0)
 
-Two corrections shaped where this ended up. The source-audit track (v0.6.0) made the behind-login half real first — then its ingestion path proved unshippable through security review. And the "scan" that had existed since v0.1.0 turned out to be fabricating findings about real sites, which v0.9.0 removed outright. v1.0.0 makes the logged-out surface genuinely real for the first time, via an optional local crawl service.
+Two corrections shaped where this ended up. The source-audit track (v0.6.0) made the behind-login half real first — then its ingestion path proved unshippable through security review. And the "scan" that had existed since v0.1.0 turned out to be fabricating findings about real sites, which v0.9.0 removed outright. v1.0.0 makes the logged-out surface genuinely real for the first time, via an optional local crawl service; v1.1.0 puts a model behind both halves — choosing which pages to read, and reviewing what you attest to about the half no crawl can see.
 
 **Shipped:**
 
@@ -22,16 +22,17 @@ Two corrections shaped where this ended up. The source-audit track (v0.6.0) made
 - **Exportable audit log (v0.8.0)** — printable/PDF record of every run, each requirement's status and provenance, every attestation, and every override with its stated reason.
 - **Repo uploading retired (v0.8.0)** — the browser folder-upload entry path is gone; see the open question under Later.
 - **Real website crawling (v1.0.0)** — an optional local service fetches the homepage and linked policy pages; findings are evidenced with real quotes and source URLs, and the strictness dial governs how literally live site wording must match.
+- **Agents (v1.1.0)** — a navigator that finds a site's privacy documents by reading it rather than matching a regex list, and an attestation interviewer that reviews behind-login descriptions against the citation. Both optional, both degrade to the previous behaviour, both gated so a model cannot assert anything it can't cite.
 - **Fabricated results removed (v0.9.0)** — the simulated crawler, invented evidence snippets, the pseudo-random trust score and competitor scores are gone; unassessed requirements read Unassessed rather than being guessed.
 - Recommendations tab, upcoming-legislation tab (static seed data), PDF summary report via print dialog.
 
-**Still simulated:** the self-attested checklist reviewer (keyword heuristic, not a model call), the legislation dataset, and competitor scores. Website crawling is now real (v1.0.0, optional local service); what a fetch can't establish — tracker timing, anything behind login — is flagged rather than guessed. See README's real-vs-mocked table.
+**Still simulated:** the legislation dataset. Website crawling is real (v1.0.0), and attestation review is a real model call when the service has a key (v1.1.0), falling back to the old keyword heuristic without one — the UI and audit log always say which ran. What a fetch can't establish — tracker timing, anything behind login — is flagged rather than guessed. See README's real-vs-mocked table.
 
 ---
 
 ## Next — requires a backend
 
-The three no-backend items shipped in v0.8.0. Everything remaining needs server-side infrastructure, which is now the real architectural threshold for this project (see `SPEC.md` Phase 1: a static file can't hold an API key or run scheduled jobs).
+The three no-backend items shipped in v0.8.0. The backend threshold itself was crossed in v1.0.0 (the crawl service) and v1.1.0 (which gave it an API key), so what remains here needs *more* infrastructure than that — accounts, scheduled jobs, a delivery channel.
 
 ### 1. Legislation alerts
 
@@ -58,7 +59,7 @@ It must never answer "this isn't how we'd do it." Divergence from the recommenda
 
 A reviewed proposal is also a natural attestation artifact: the plan, the review, and the eventual evidence form a chain worth carrying into the audit log (item 2).
 
-Requires a real model call, hence a backend to hold the API key. The same infrastructure would replace the keyword-heuristic checklist reviewer.
+The infrastructure this needed now exists: `server/` holds the API key, and `server/agent/attest.js` already reviews a written description against a citation with the quote-or-stay-silent gate this would want. Proposal review is the same shape pointed at a spec rather than an attestation — the nearest thing to shovel-ready on this list.
 
 ---
 
@@ -66,17 +67,13 @@ Requires a real model call, hence a backend to hold the API key. The same infras
 
 Four places in this app are genuinely agentic — a model given tools and autonomy over its own next step, not a single call with a nice prompt. They are listed in build order, which is also increasing order of how much damage a bad output could do.
 
-### 1. Crawl navigation — spiked, not measured
+### 1. Crawl navigation — shipped v1.1.0, unmeasured
 
-`POLICY_HINTS` in `server/crawler.js` only finds pages whose wording we anticipated; a site filing its CCPA supplement under "Additional Disclosures" is invisible to it, and the fix is always a human adding another regex. An agent given a `fetch_page` tool and a goal follows the links a person would.
+Shipped as the navigator agent. Every mechanism is tested offline; whether the model actually picks better links than the regex list is still open, because measuring it needs an API key. `server/agent/eval.js` runs both methods against the same target and scores them — the heuristic gets 2/4 on the local fixture. **Run it against betterhelp.com before treating the agent as the better option.**
 
-A spike lives in [`server/agent/`](./server/agent/README.md) with an eval harness comparing it against the hint list. The heuristic scores 2/4 on the local fixture; the agent side is unmeasured until someone runs it with an API key. Not wired into the app — measuring first is the point.
+### 2. Attestation interviewer — shipped v1.1.0
 
-The blast radius is what makes this the right first one: the agent decides *where to look* and never what anything means. Judgment stays in `js/crawl.js` against retrieved text.
-
-### 2. Attestation interviewer
-
-Replaces the keyword heuristic in `js/reviewer.js`, which is the weakest part of the product and covers the half of GDPR that a crawl can never see. Instead of matching keywords against a typed description, it conducts the interview a regulator would — "does that delete the therapist's session notes, or just the profile?" — and keeps going until it can either write a defensible attestation or name what is still missing. Real state, model-chosen next question.
+Shipped. Same caveat: the interview mechanics are tested, the judgment isn't. Worth reviewing a handful of real attestations by hand against what it records before trusting it on the ones that matter.
 
 ### 3. Proposal review
 

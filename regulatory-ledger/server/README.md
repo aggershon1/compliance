@@ -14,13 +14,24 @@ So retrieval has to happen somewhere without that restriction. This is that some
 node server/index.js
 ```
 
-Node 18+ required (it uses built-in `fetch`). **No dependencies, no install step.** Then open `regulatory-ledger.html` — it detects the service automatically and shows a **Crawl site** action. If the service isn't running, the app still works; every requirement is simply assessed by hand.
+Node 18+ required (it uses built-in `fetch`). **The core has no dependencies and no install step.** Then open `regulatory-ledger.html` — it detects the service automatically and shows a **Crawl site** action. If the service isn't running, the app still works; every requirement is simply assessed by hand.
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `8787` | Port to listen on |
 | `HOST` | `127.0.0.1` | Bind address — loopback by default |
+| `ANTHROPIC_API_KEY` | unset | Enables the two agents (see below). Without it the service still crawls. |
+| `AGENT_MODEL` | `claude-opus-5` | Model for both agents |
 | `ALLOW_PRIVATE_HOSTS` | unset | **Test only.** Disables the private-address guard so the test suite can crawl a local fixture. Never set this on a shared machine. |
+
+## The optional agents
+
+Two capabilities need a model, and a static file can't hold an API key — the second reason this service exists. They live in [`agent/`](./agent/README.md), which has its own `package.json`, and are `require`d lazily inside their handlers so the core stays dependency-free:
+
+- **Navigator** — finds a site's privacy documents by reading it, instead of matching link text against a hardcoded regex list. Reaches pages the pattern list can't, because it doesn't need to have anticipated the site's vocabulary.
+- **Attestation interviewer** — reviews the user's written description of a behind-login flow against the citation, asking follow-up questions before recording a status.
+
+Both are off unless `ANTHROPIC_API_KEY` is set and `npm install` has been run in `agent/`. The service prints which are enabled at startup, and `/api/health` reports it so the app can offer the right actions. When a model call fails mid-crawl, discovery falls back to link patterns and **says so in the crawl notes** — which method chose a set of pages is provenance for every finding derived from them.
 
 ## What it does and doesn't do
 
@@ -30,7 +41,9 @@ Two levels matter in practice. Sites commonly link only "Privacy Policy" from th
 
 You can also start from a specific page (`betterhelp.com/privacy`) rather than a bare domain, which skips link discovery entirely when you already know where a document lives.
 
-It **does not judge**. No compliance logic lives here. The app applies the requirement rules and your strictness setting to what was actually retrieved. That split is deliberate: a server that only reports what it fetched cannot invent a finding, which is the failure this project already had to correct once (see CHANGELOG v0.9.0).
+It **does not judge the website**. No compliance logic runs against retrieved pages here — the app applies the requirement rules and your strictness setting to what was actually fetched. That split is deliberate: a service that only reports what it retrieved cannot invent a finding about a real company's real site, which is the failure this project already had to correct once (see CHANGELOG v0.9.0). The navigator agent doesn't change that; it decides *which pages to open*, never what they mean.
+
+One thing here does now make a judgment, and it is worth being precise about what: `POST /api/attest` reviews **the user's own written description** of a flow that lives behind a login, against the legal citation. It has no access to the product and observes nothing. It answers "does the implementation you describe satisfy this article?" — not "is this true?" — and every attestation it records must cite the user's own words, verbatim, or it is marked ungrounded. See [`agent/README.md`](./agent/README.md).
 
 What a fetch genuinely cannot establish, and where the app says so:
 
@@ -55,13 +68,26 @@ It binds to loopback and holds no credentials or user data. It is meant to run l
 
 ```
 GET /api/health
-  -> {"ok":true,"service":"regulatory-ledger-crawler","version":"1.0.0"}
+  -> {"ok":true,"service":"regulatory-ledger-crawler","version":"1.1.0",
+      "agent":{"available":false,"model":null,"reason":"ANTHROPIC_API_KEY is not set…"}}
 
-GET /api/crawl?url=example.com
-  -> {"ok":true,"target":"https://example.com/","fetchedAt":...,"pages":[...],"notes":[...]}
+GET /api/crawl?url=example.com&mode=auto|agent|links
+  -> {"ok":true,"target":"https://example.com/","fetchedAt":...,"pages":[...],
+      "notes":[...],"discovery":{"method":"agent","model":"…","opened":6,"selected":4}}
   -> {"ok":false,"error":"Could not retrieve https://… — the hostname did not resolve."}
+
+POST /api/attest   {item:{code,text,layman,guidance}, description, hasScreenshot, turns, strictness}
+  -> {"ok":true,"needsFollowUp":true,"followUpQuestion":"…","whyItMatters":"…"}
+  -> {"ok":true,"needsFollowUp":false,"status":"Partial","basis":[…],"gaps":[…],"grounded":true}
+  -> {"ok":false,"error":"…","fallback":"keyword"}
 ```
 
+`mode` defaults to `auto`: the agent when it's available, link patterns otherwise. `discovery` records which one ran.
+
+`/api/attest` holds no state — the interview transcript is passed in on every call and lives in the browser. When it returns `ok:false` the app falls back to its keyword heuristic and labels the result as such.
+
 A failed crawl returns `ok:false` with a readable reason. The app surfaces that reason and leaves the requirements unassessed rather than presenting a failure to fetch as a compliance finding.
+
+The same applies to the agents: an unavailable or failing model degrades to the older behaviour and says which reviewer or discovery method actually ran. A worse answer presented as the same answer would be the failure this project already had to correct once.
 
 If no scheme is given, `https` is tried first; if that can't connect, the crawl falls back to `http` and **notes it in the results**, since a site not serving HTTPS is itself worth reviewing.
