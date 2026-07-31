@@ -1,0 +1,14 @@
+{
+  "name": "regulatory-ledger-navigator-spike",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Spike: an agent that finds a site's privacy documents by reading it, instead of matching a hardcoded hint list. Kept in its own package so the crawl service stays dependency-free.",
+  "scripts": {
+    "eval": "node eval.js",
+    "eval:heuristic": "node eval.js --heuristic-only",
+    "fixture": "node fixture/server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0"
+  }
+}

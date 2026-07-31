@@ -315,4 +315,4 @@ async function crawl(target){
   };
 }
 
-module.exports = { crawl, fetchPage, extractText, extractLinks, extractScripts, discoverPolicyLinks, assertSafeUrl, isBlockedIp, normalizeTarget };
+module.exports = { crawl, fetchPage, extractText, extractTitle, extractLinks, extractScripts, discoverPolicyLinks, assertSafeUrl, isBlockedIp, normalizeTarget };
