@@ -366,6 +366,55 @@
   }
   .attested-meta{ font-family:'IBM Plex Mono', monospace; font-size:10.3px; color:var(--ink-faint); margin-top:7px; }
 
+  /* attestation review — interviewer output */
+  .reviewing-note{ font-size:12.6px; color:var(--ink-soft); font-style:italic; margin-top:11px; }
+  .reviewer-hint{ font-size:11.8px; color:var(--ink-faint); margin-top:9px; max-width:580px; line-height:1.55; }
+  .reviewer-tag{
+    font-family:'IBM Plex Mono', monospace; font-size:9.8px; text-transform:uppercase; letter-spacing:0.4px;
+    padding:2.5px 8px; border-radius:2px; border:1px solid var(--line-strong);
+  }
+  .reviewer-tag.model{ color:var(--verdigris); border-color:var(--verdigris-soft); }
+  .reviewer-tag.keyword{ color:var(--amber); border-color:var(--amber-soft); }
+  .reviewer-fallback{ font-size:11.8px; color:var(--amber); margin-top:8px; max-width:580px; }
+  .basis-box{
+    margin-top:11px; padding:11px 14px; background:var(--paper-raised);
+    border-left:3px solid var(--verdigris); border-radius:0 var(--radius) var(--radius) 0; max-width:580px;
+  }
+  .basis-head, .gaps-head, .interview-head{
+    font-family:'IBM Plex Mono', monospace; font-size:9.8px; text-transform:uppercase;
+    letter-spacing:0.6px; color:var(--ink-faint); margin-bottom:8px;
+  }
+  .basis-row{ margin-bottom:9px; }
+  .basis-row:last-child{ margin-bottom:0; }
+  .basis-quote{ font-size:12.6px; color:var(--ink); font-style:italic; }
+  .basis-est{ font-size:11.8px; color:var(--ink-soft); margin-top:2px; }
+  .gaps-box{
+    margin-top:11px; padding:11px 14px; background:var(--paper-raised);
+    border-left:3px solid var(--amber); border-radius:0 var(--radius) var(--radius) 0; max-width:580px;
+  }
+  .gaps-box ul{ margin:0; padding-left:18px; }
+  .gaps-box li{ font-size:12.4px; color:var(--ink-soft); margin-bottom:4px; }
+  .ungrounded-warn{
+    margin-top:11px; padding:9px 13px; font-size:12.2px; color:var(--redline);
+    border:1px solid var(--redline-soft); border-radius:var(--radius); max-width:580px; line-height:1.5;
+  }
+  .interview-thread{ margin-top:12px; max-width:580px; }
+  .interview-turn{ border-left:2px solid var(--line-strong); padding-left:11px; margin-bottom:9px; }
+  .interview-q{ font-size:12.4px; color:var(--ink); font-weight:500; }
+  .interview-a{ font-size:12.4px; color:var(--ink-soft); margin-top:2px; }
+
+  /* settings — page discovery */
+  .discovery-opts{ display:flex; flex-direction:column; gap:7px; }
+  .discovery-opt{
+    display:flex; gap:9px; align-items:flex-start; padding:8px 10px; cursor:pointer;
+    border:1.5px solid var(--line-strong); border-radius:var(--radius); font-size:12.4px; transition:border-color .13s;
+  }
+  .discovery-opt:hover{ border-color:var(--ink-faint); }
+  .discovery-opt.on{ border-color:var(--ink); }
+  .discovery-opt.disabled{ opacity:.5; cursor:not-allowed; }
+  .discovery-note{ font-size:11.5px; color:var(--ink-soft); }
+  .discovery-warn{ font-size:11.5px; color:var(--amber); margin-top:8px; }
+
   /* overrides */
   .override-wrap{ margin-top:10px; }
   .link-btn{ font-family:'IBM Plex Mono', monospace; font-size:11.3px; color:var(--slate); background:none; border:none; cursor:pointer; text-decoration:underline; padding:0; }

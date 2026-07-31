@@ -275,7 +275,15 @@ function renderComplianceTab(site, scan){
   let bannerBody;
   if(site.crawl){
     const n = site.crawl.raw.pages.length;
-    bannerBody = `<b>Crawled ${new Date(site.crawl.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</b> — ${n} page${n===1?'':'s'} retrieved from ${site.domain}. Results tagged <span class="source-tag crawled">Crawled</span> come from text actually fetched from those pages, quoted with its source URL. A crawl can confirm what a page <i>says</i>; it cannot confirm the underlying practice works. Anything it couldn't determine stays <b>Unassessed</b> rather than being failed.`;
+    const disc = site.crawl.raw.discovery || {method:'links'};
+    /* Which method chose the pages is provenance for every finding derived
+       from them, so it belongs next to the findings rather than buried. */
+    const how = disc.method === 'agent'
+      ? `Pages were chosen by the navigator agent (${disc.model || 'model'}), which opened ${disc.opened || '?'} page${disc.opened===1?'':'s'} and kept ${disc.selected || 0}.`
+      : disc.fellBackFrom
+        ? `Pages were chosen by matching link patterns, after agent discovery failed (${escapeHtml(disc.reason || 'unknown reason')}).`
+        : `Pages were chosen by matching link patterns against known privacy/legal wording.`;
+    bannerBody = `<b>Crawled ${new Date(site.crawl.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</b> — ${n} page${n===1?'':'s'} retrieved from ${site.domain}. ${how} Results tagged <span class="source-tag crawled">Crawled</span> come from text actually fetched from those pages, quoted with its source URL. A crawl can confirm what a page <i>says</i>; it cannot confirm the underlying practice works. Anything it couldn't determine stays <b>Unassessed</b> rather than being failed.`;
     if(site.crawl.notes && site.crawl.notes.length) bannerBody += `<div class="crawl-notes">${site.crawl.notes.map(x=>'• '+x).join('<br>')}</div>`;
   } else if(svc.available){
     bannerBody = `<b>Nothing has been checked automatically yet.</b> The crawl service is running — use <b>Crawl site</b> above to fetch ${site.domain}'s public pages and record what they actually say. Requirements nobody has assessed show as <b>Unassessed</b> and earn no credit.`;
@@ -441,6 +449,87 @@ function renderOverrideControl(site, itemId, rawCurrentStatus){
   return html;
 }
 
+/* ---- Attestation review UI --------------------------------------------
+   The reviewer's output is shown in four separate registers, deliberately
+   kept apart: what it concluded (rationale), what in your own words it
+   concluded that from (basis), what it still couldn't establish (gaps),
+   and the interview that got there. Keeping the basis visible and
+   verbatim is what stops a fluent paragraph from reading as evidence. */
+
+function descriptionFieldsHtml(item, draft){
+  return `
+    <textarea class="checklist-textarea" data-desc-for="${item.id}" placeholder="Briefly describe how this works today…">${draft.description}</textarea>
+    <div class="checklist-file-row">
+      <label class="file-btn">📎 Attach screenshot (optional)
+        <input type="file" accept="image/*" data-shot-for="${item.id}" style="display:none;">
+      </label>
+      ${draft.screenshot ? `<img class="thumb-preview" src="${draft.screenshot}">` : ''}
+    </div>`;
+}
+
+function attestReviewerHintHtml(){
+  const svc = state.crawlBackend || {};
+  if(svc.available && svc.agent && svc.agent.available){
+    return `<div class="reviewer-hint">Reviewed against the citation by the attestation interviewer, which may ask follow-up questions before recording a status.</div>`;
+  }
+  return `<div class="reviewer-hint">The review agent isn’t available, so this will be checked by the keyword heuristic — a drafting aid rather than a verdict. Start the crawl service with an <code>ANTHROPIC_API_KEY</code> for a real review.</div>`;
+}
+
+function reviewerTagHtml(st){
+  if(st.fromCode) return '';
+  if(st.reviewer === 'model') return `<span class="reviewer-tag model">Interviewed &amp; reviewed</span>`;
+  if(st.reviewer === 'keyword') return `<span class="reviewer-tag keyword">Keyword heuristic</span>`;
+  return '';
+}
+
+function reviewerNoteHtml(st){
+  if(!st.fallbackReason) return '';
+  return `<div class="reviewer-fallback">Reviewed by the keyword heuristic because ${escapeHtml(st.fallbackReason)}. Treat this as a drafting aid, not a verdict.</div>`;
+}
+
+function basisHtml(st){
+  if(!st.basis || !st.basis.length) return '';
+  return `
+    <div class="basis-box">
+      <div class="basis-head">Based on what you told us</div>
+      ${st.basis.map(b=>`
+        <div class="basis-row">
+          <div class="basis-quote">“${escapeHtml(b.quote)}”</div>
+          <div class="basis-est">${escapeHtml(b.establishes)}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function gapsHtml(st){
+  if(!st.gaps || !st.gaps.length) return '';
+  return `
+    <div class="gaps-box">
+      <div class="gaps-head">Not established by your account</div>
+      <ul>${st.gaps.map(g=>`<li>${escapeHtml(g)}</li>`).join('')}</ul>
+    </div>`;
+}
+
+/* An attestation whose basis couldn't be traced back to anything the user
+   wrote isn't evidence, however well it reads. Say so where the status is,
+   not in a footnote. */
+function ungroundedHtml(st){
+  if(st.reviewer !== 'model' || st.grounded) return '';
+  return `<div class="ungrounded-warn">⚠ The reviewer couldn’t point to anything in your own words to support this. Nothing here was verified against your description — treat the status as unsupported until you add detail and re-review.</div>`;
+}
+
+function interviewThreadHtml(st){
+  if(!st || !st.turns || !st.turns.length) return '';
+  return `
+    <div class="interview-thread">
+      <div class="interview-head">Follow-up questions asked</div>
+      ${st.turns.map(t=>`
+        <div class="interview-turn">
+          <div class="interview-q">${escapeHtml(t.question)}</div>
+          <div class="interview-a">${escapeHtml(t.answer)}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
 function renderChecklistItem(site, scan, regKey, item){
   const st = site.checklistState[item.id];
   const draft = getDraft(site.id, item.id);
@@ -451,23 +540,29 @@ function renderChecklistItem(site, scan, regKey, item){
 
   let statusBadge = `<span class="status-badge ${eff.toLowerCase()}">${eff}</span>`;
 
+  const reviewing = !!state.reviewing[item.id];
+
   let bodyHtml = '';
   if(checked){
-    if(st.needsFollowUp && !st.finalized){
+    if(reviewing){
       bodyHtml = `
         <div class="checklist-body">
-          <textarea class="checklist-textarea" data-desc-for="${item.id}" placeholder="Briefly describe how this works today…">${draft.description}</textarea>
-          <div class="checklist-file-row">
-            <label class="file-btn">📎 Attach screenshot (optional)
-              <input type="file" accept="image/*" data-shot-for="${item.id}" style="display:none;">
-            </label>
-            ${draft.screenshot ? `<img class="thumb-preview" src="${draft.screenshot}">` : ''}
-          </div>
+          ${interviewThreadHtml(st)}
+          <div class="reviewing-note">⟳ Reviewing your description against ${item.code}…</div>
+        </div>`;
+    } else if(st.needsFollowUp && !st.finalized){
+      bodyHtml = `
+        <div class="checklist-body">
+          ${descriptionFieldsHtml(item, draft)}
+          ${interviewThreadHtml(st)}
           <div class="followup-box">
-            <div class="followup-q">${st.followUpQuestion}</div>
-            <div class="followup-sketch">${st.sketch}</div>
+            <div class="followup-q">${escapeHtml(st.followUpQuestion || '')}</div>
+            ${st.whyItMatters ? `<div class="followup-sketch">Why this matters: ${escapeHtml(st.whyItMatters)}</div>` : ''}
+            ${st.sketch ? `<div class="followup-sketch">${escapeHtml(st.sketch)}</div>` : ''}
             <textarea class="checklist-textarea" data-followup-for="${item.id}" placeholder="Your answer…">${draft.followUpAnswer}</textarea>
-            <button class="submit-btn" data-finalize-for="${item.id}">Submit answer for review</button>
+            <button class="submit-btn" data-submit-for="${item.id}">Submit answer</button>
+            <button class="link-btn" style="margin-left:12px;" data-submit-for="${item.id}" data-decline>Record without answering</button>
+            ${reviewerNoteHtml(st)}
           </div>
         </div>
       `;
@@ -480,24 +575,27 @@ function renderChecklistItem(site, scan, regKey, item){
         <div class="checklist-body">
           <div class="result-box">
             ${fromCode ? `<span class="confidence-tag code-attested-tag">Auto-attested from source</span>` : ''}
+            ${reviewerTagHtml(st)}
             <span class="confidence-tag">Confidence: ${st.confidence}</span>
             ${isStale ? `<span class="stale-badge">Needs re-attestation</span>` : ''}
+            ${st.strictnessStale ? `<span class="stale-badge">Reviewed at a different strictness</span>` : ''}
           </div>
-          <div class="rationale-text">${st.rationale}${evHover}</div>
+          <div class="rationale-text">${escapeHtml(st.rationale || '')}${evHover}</div>
+          ${basisHtml(st)}
+          ${gapsHtml(st)}
+          ${ungroundedHtml(st)}
+          ${interviewThreadHtml(st)}
           <div class="attested-meta">${fromCode?'Auto-attested from source audit':'Attested'} ${staleDays===0?'today':staleDays+' day'+(staleDays===1?'':'s')+' ago'}${isStale ? ' — stale, last-known status still counted toward score.' : '.'}</div>
+          ${reviewerNoteHtml(st)}
+          ${(st.strictnessStale || isStale) && !fromCode ? `<button class="link-btn" data-submit-for="${item.id}">Re-review with the current settings</button>` : ''}
         </div>
       `;
     } else {
       bodyHtml = `
         <div class="checklist-body">
-          <textarea class="checklist-textarea" data-desc-for="${item.id}" placeholder="Briefly describe how this works today…">${draft.description}</textarea>
-          <div class="checklist-file-row">
-            <label class="file-btn">📎 Attach screenshot (optional)
-              <input type="file" accept="image/*" data-shot-for="${item.id}" style="display:none;">
-            </label>
-            ${draft.screenshot ? `<img class="thumb-preview" src="${draft.screenshot}">` : ''}
-          </div>
+          ${descriptionFieldsHtml(item, draft)}
           <button class="submit-btn" data-submit-for="${item.id}">Submit for review</button>
+          ${attestReviewerHintHtml()}
         </div>
       `;
     }
@@ -626,6 +724,32 @@ function renderCompetitorsTab(site, scan){
   `;
 }
 
+/* Which method picks the pages to crawl. Exposed because the two have
+   genuinely different costs: the agent opens pages the hint list can't
+   reach, and bills tokens for every run. Auto is the sensible default;
+   the explicit options exist so a run can be pinned either way — pinning
+   to link patterns is also how you get a free re-crawl. */
+function renderDiscoverySetting(){
+  const svc = state.crawlBackend || {};
+  const agentOk = !!(svc.agent && svc.agent.available);
+  const opts = [
+    ['auto',  'Automatic', agentOk ? 'Uses the navigator agent, falling back to link patterns.' : 'The agent isn’t available, so this uses link patterns.'],
+    ['agent', 'Navigator agent', 'A model reads the site and follows the links a person would. Costs tokens per crawl.'],
+    ['links', 'Link patterns', 'Matches link text against known privacy wording. Free, but only finds wording we anticipated.'],
+  ];
+  return `
+    <div class="settings-dropdown-title" style="margin-top:14px;">Page discovery</div>
+    <p class="settings-dropdown-note">How the crawl decides which pages to read.</p>
+    <div class="discovery-opts">
+      ${opts.map(([val,label,note])=>`
+        <label class="discovery-opt ${state.discoveryMode===val?'on':''} ${val==='agent'&&!agentOk?'disabled':''}">
+          <input type="radio" name="discovery-mode" value="${val}" ${state.discoveryMode===val?'checked':''} ${val==='agent'&&!agentOk?'disabled':''}>
+          <span><b>${label}</b><br><span class="discovery-note">${note}</span></span>
+        </label>`).join('')}
+    </div>
+    ${!agentOk ? `<div class="discovery-warn">${escapeHtml((svc.agent && svc.agent.reason) || 'The crawl service isn’t running.')}</div>` : ''}`;
+}
+
 function renderSettingsDropdown(){
   const lvl = STRICTNESS_LEVELS[state.strictness] || STRICTNESS_LEVELS[DEFAULT_STRICTNESS];
   const size = persistedSizeLabel();
@@ -638,7 +762,8 @@ function renderSettingsDropdown(){
     <div class="strictness-scale mono"><span>Lenient</span><span>Letter of the law</span></div>
     <div class="strictness-current"><b>${lvl.label}</b> — ${lvl.blurb}</div>
     <div class="strictness-example">e.g. ${lvl.example}</div>
-    <p class="settings-dropdown-note" style="margin-top:10px;">Changing this re-evaluates existing self-attestations that were judged from a written description. Manual overrides are never touched.</p>
+    <p class="settings-dropdown-note" style="margin-top:10px;">Changing this re-evaluates existing self-attestations that were judged from a written description by the keyword heuristic. Attestations reviewed by the interviewer are flagged as reviewed at a different strictness rather than silently re-run — that would mean a network call and a bill you didn't ask for. Manual overrides are never touched.</p>
+    ${renderDiscoverySetting()}
 
     <div class="settings-section-divider"></div>
     <div class="settings-dropdown-title">Saved data</div>
@@ -691,7 +816,30 @@ function auditItemRow(site, scan, regKey, item, source){
     }
   } else {
     if(st && st.finalized){
-      provenance = `${st.fromCode ? 'Auto-attested from source audit' : 'Self-attested'} ${auditTs(st.attestedAt)} · confidence ${st.confidence}. ${st.rationale}`;
+      /* Which reviewer produced a status is provenance, not decoration: a
+         model interview and a keyword count are not the same evidence, and
+         whoever reads this log later needs to know which one they're
+         looking at. */
+      const how = st.fromCode ? 'Auto-attested from source audit'
+        : st.reviewer === 'model' ? `Self-attested, reviewed by the attestation interviewer`
+        : st.reviewer === 'keyword' ? 'Self-attested, checked by the keyword heuristic (a drafting aid, not a verdict)'
+        : 'Self-attested';
+      provenance = `${how} ${auditTs(st.attestedAt)} · confidence ${st.confidence}. ${escapeHtml(st.rationale || '')}`;
+      if(st.basis && st.basis.length){
+        provenance += `<br><i>Basis, in the attester's own words:</i> ${st.basis.map(b=>`“${escapeHtml(b.quote)}”`).join(' · ')}`;
+      }
+      if(st.gaps && st.gaps.length){
+        provenance += `<br><i>Not established:</i> ${st.gaps.map(g=>escapeHtml(g)).join('; ')}`;
+      }
+      if(st.reviewer === 'model' && !st.grounded){
+        provenance += ` <b>Unsupported — the reviewer could not cite anything the attester actually wrote.</b>`;
+      }
+      if(st.fallbackReason){
+        provenance += `<br><i>Fell back to the keyword heuristic because ${escapeHtml(st.fallbackReason)}.</i>`;
+      }
+      if(st.turns && st.turns.length){
+        provenance += `<br><i>Follow-ups:</i> ${st.turns.map(t=>`“${escapeHtml(t.question)}” → “${escapeHtml(t.answer)}”`).join(' · ')}`;
+      }
       const staleDays = st.attestedAt ? Math.floor((Date.now()-st.attestedAt)/86400000) : 0;
       if(staleDays > STALE_DAYS) provenance += ` <b>Stale — ${staleDays} days old, past the ${STALE_DAYS}-day re-attestation window.</b>`;
     } else if(st && st.checked){
@@ -725,7 +873,14 @@ function buildAuditLogHTML(site){
     <div class="pr-meta">
       ${site.domain}${label?` · ${label}`:''} · Docket No. ${pad3(site.docketNum)}<br>
       Entry opened ${auditTs(site.addedAt)} · Log generated ${auditTs(Date.now())}<br>
-      Assessment method: ${site.kind==='code' ? 'archived source audit of an uploaded codebase (real analysis), plus self-attestation' : 'manual assessment and self-attestation — no website was scanned or inspected'}<br>
+      Assessment method: ${
+        site.kind==='code'
+          ? 'archived source audit of an uploaded codebase (real analysis), plus self-attestation'
+          : site.crawl
+            ? `crawl of the site's public pages (${site.crawl.raw.discovery && site.crawl.raw.discovery.method === 'agent'
+                ? `pages selected by the navigator agent, ${site.crawl.raw.discovery.model}`
+                : 'pages selected by matching link patterns'}), plus self-attestation for anything behind login`
+            : 'manual assessment and self-attestation — no website was crawled'}<br>
       Strictness setting at time of export: <b>${lvl.label}</b> — ${lvl.blurb}
     </div>`;
 

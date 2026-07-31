@@ -29,6 +29,7 @@ const PERSIST_FIELDS = [
   'overrideHistory',  // drives the "overridden N times, may need recalibrating" flag
   'strictness',
   'activeTab',
+  'discoveryMode',    // agent vs. link-pattern page discovery
 ];
 
 let persistTimer = null;
