@@ -8,20 +8,22 @@ This is the forward-looking plan. For what's built today see [`CHANGELOG.md`](./
 
 ## Where we actually are (through v1.0.0)
 
-The original roadmap framed the next milestone as "make the scan real" via a headless crawler. That framing is now out of date: the **source-audit track** (v0.6.0) made the harder half real first, and it turned out to be a better answer for the primary user — a PM who owns compliance for their own product and was drowning in manual overrides for everything behind a login wall.
+Two corrections shaped where this ended up. The source-audit track (v0.6.0) made the behind-login half real first — then its ingestion path proved unshippable through security review. And the "scan" that had existed since v0.1.0 turned out to be fabricating findings about real sites, which v0.9.0 removed outright. v1.0.0 makes the logged-out surface genuinely real for the first time, via an optional local crawl service.
 
 **Shipped:**
 
 - **Dual-track compliance model** — scanned (logged-out) + self-attested (logged-in), rolling into one blended score per regulation, with unattested items counting as zero credit.
 - **Source audit (v0.6.0, ingestion retired v0.8.0)** — pattern-matched an uploaded codebase against every requirement entirely in-browser, citing real file/line/snippet evidence. The browser upload path has since been retired (item below); entries audited before then remain viewable as historical records, and the engine is preserved in `js/codeaudit.js` (no longer loaded) for a future ingestion path.
-- **Persistence (v0.7.0, in review)** — overrides, attestations, drafts, and settings survive across sessions; re-auditing an existing entry preserves manual work and refreshes only audit-derived results. Includes stale-override detection and JSON export/import.
+- **Persistence (v0.7.0)** — overrides, attestations, drafts, and settings survive across sessions; re-auditing an existing entry preserves manual work and refreshes only audit-derived results. Includes stale-override detection and JSON export/import.
 - Country-based scoping with per-country + overall grading; manual country entry.
 - Final grade gated on self-attestation completeness.
 - Risk & precedent merged inline into Compliance Results, citing **real, publicly reported enforcement actions**, with an aggregate exposure range.
 - **Strictness dial (v0.8.0)** — one Settings control governing how literally a finding must match statutory wording, replacing the severity-weight slider. Changing it re-evaluates existing description-based attestations; overrides are never touched.
 - **Exportable audit log (v0.8.0)** — printable/PDF record of every run, each requirement's status and provenance, every attestation, and every override with its stated reason.
 - **Repo uploading retired (v0.8.0)** — the browser folder-upload entry path is gone; see the open question under Later.
-- Recommendations tab, upcoming-legislation tab (static seed data), Privacy Trust score, competitor comparison, PDF summary report via print dialog.
+- **Real website crawling (v1.0.0)** — an optional local service fetches the homepage and linked policy pages; findings are evidenced with real quotes and source URLs, and the strictness dial governs how literally live site wording must match.
+- **Fabricated results removed (v0.9.0)** — the simulated crawler, invented evidence snippets, the pseudo-random trust score and competitor scores are gone; unassessed requirements read Unassessed rather than being guessed.
+- Recommendations tab, upcoming-legislation tab (static seed data), PDF summary report via print dialog.
 
 **Still simulated:** the self-attested checklist reviewer (keyword heuristic, not a model call), the legislation dataset, and competitor scores. Website crawling is now real (v1.0.0, optional local service); what a fetch can't establish — tracker timing, anything behind login — is flagged rather than guessed. See README's real-vs-mocked table.
 
@@ -66,7 +68,6 @@ Requires a real model call, hence a backend to hold the API key. The same infras
 - **A real analysis path for behind-login requirements.** These remain manual attestation. A read-only GitHub App is likely blocked on the same grounds the codebase upload was; a local CLI emitting findings without moving code is the surviving candidate. `js/codeaudit.js` and its rules are preserved in-tree for it.
 - **Broader regulatory coverage** — UK GDPR, LGPD (Brazil), PIPEDA (Canada), more US state laws (Colorado, Virginia, Connecticut), and sector rules (HIPAA, COPPA, GLBA). The regulation picker and requirement data model were built to extend this way.
 - **"What changed since last audit" diff** — with multiple runs now stored per entry, surface regressions between runs rather than only point-in-time posture. Turns the tool from an audit into ongoing monitoring.
-- **Real crawler for the logged-out surface** — deliberately deprioritized. It only sees the public pages, which was never the hard part; the behind-login gap mattered more and was addressed differently.
 - **Multi-site / portfolio view** — for teams or agencies tracking several products.
 - **Remediation tickets** — generate Jira/Linear/GitHub issues from failed requirements. Worth doing only once findings are trustworthy enough that filing them automatically doesn't create noise.
 - **Vendor/subprocessor risk register** — flag third-party scripts or dependencies absent from the documented subprocessor list.
