@@ -288,6 +288,10 @@
     color:var(--ink-faint); border:1px solid var(--line-strong); border-radius:2px; padding:1.5px 5px; margin-right:7px;
   }
   .source-tag.attested{ color:var(--slate); border-color:var(--slate); }
+  .source-tag.crawled{ color:var(--verdigris); border-color:var(--verdigris-soft); }
+  .crawl-limitation{ font-size:11.8px; color:var(--amber); margin-top:6px; max-width:620px; }
+  .crawl-notes{ font-size:11.5px; color:var(--ink-faint); margin-top:8px; }
+  .crawl-error{ font-size:12px; color:var(--redline); margin-top:8px; }
   .source-tag.code{ color:var(--verdigris); border-color:var(--verdigris-soft); }
 
   /* retained: historical source-audit entries still render their evidence */
@@ -456,6 +460,7 @@
 <script src="js/storage.js"></script>
 <script src="js/scoring.js"></script>
 <script src="js/reviewer.js"></script>
+<script src="js/crawl.js"></script>
 <script src="js/render.js"></script>
 <script src="js/app.js"></script>
 </body>

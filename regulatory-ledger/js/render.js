@@ -96,6 +96,9 @@ function renderMain(site){
       <div class="header-actions">
         <button class="export-btn" id="btn-export">↓ Export PDF report</button>
         <button class="ff-btn" id="btn-fastforward" title="Demo only: ages all self-attested items by 100 days">⏩ Simulate 100 days (demo)</button>
+        ${state.crawlBackend && state.crawlBackend.available && site.kind!=='code'
+          ? `<button class="rescan-btn" id="btn-crawl" ${state.crawling?'disabled':''}>${state.crawling ? '⟳ Crawling…' : (site.crawl ? '⟳ Re-crawl site' : '⟳ Crawl site')}</button>`
+          : ''}
         <button class="export-btn" id="btn-export-audit">↓ Export audit log</button>
       </div>
     </div>
@@ -201,6 +204,27 @@ function citeHover(item){
   return `<span class="cite-hover"><span class="req-code">${item.code}</span><span class="cite-tooltip"><div class="ct-title">${item.articleTitle}</div>${item.articleText}</span></span>`;
 }
 
+function isCrawled(site, itemId){
+  const f = site.crawlFindings && site.crawlFindings[itemId];
+  return !!(f && f.determinable && !site.overrides[itemId]);
+}
+
+/* Evidence hover for crawl findings — real quotes from real fetched pages,
+   each with the URL you can open to check it yourself. */
+function crawlEvidenceHover(finding){
+  if(!finding || !finding.evidence || !finding.evidence.length) return '';
+  const rows = finding.evidence.map(h=>`
+    <div class="code-ev-row">
+      <div class="code-ev-loc">${escapeHtml(h.url)}${h.exact?'':' <span class="sim-tag">paraphrase match</span>'}</div>
+      <div class="code-ev-snippet">${escapeHtml(h.quote)}</div>
+    </div>`).join('');
+  return `<span class="cite-hover evidence-hover"><span class="evidence-trigger">evidence</span><span class="cite-tooltip evidence-tooltip code-ev-tooltip">
+    <div class="ct-title">Retrieved from the live site</div>
+    ${rows}
+    <div class="evidence-disclaimer">Quoted from pages fetched at crawl time. Open the URL to verify — page content can change.</div>
+  </span></span>`;
+}
+
 /* Real evidence hover for source-audited sites: the file/line/snippet hits
    the audit engine actually found in the uploaded codebase. */
 function codeEvidenceHover(verdict){
@@ -247,8 +271,20 @@ function renderComplianceTab(site, scan){
     const p = assessmentProgress(site, regKey);
     return `<span class="assess-progress-chip ${p.done===p.total?'complete':''}">${regKey}: ${p.done}/${p.total} requirements assessed</span>`;
   }).join('');
+  const svc = state.crawlBackend || {};
+  let bannerBody;
+  if(site.crawl){
+    const n = site.crawl.raw.pages.length;
+    bannerBody = `<b>Crawled ${new Date(site.crawl.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</b> — ${n} page${n===1?'':'s'} retrieved from ${site.domain}. Results tagged <span class="source-tag crawled">Crawled</span> come from text actually fetched from those pages, quoted with its source URL. A crawl can confirm what a page <i>says</i>; it cannot confirm the underlying practice works. Anything it couldn't determine stays <b>Unassessed</b> rather than being failed.`;
+    if(site.crawl.notes && site.crawl.notes.length) bannerBody += `<div class="crawl-notes">${site.crawl.notes.map(x=>'• '+x).join('<br>')}</div>`;
+  } else if(svc.available){
+    bannerBody = `<b>Nothing has been checked automatically yet.</b> The crawl service is running — use <b>Crawl site</b> above to fetch ${site.domain}'s public pages and record what they actually say. Requirements nobody has assessed show as <b>Unassessed</b> and earn no credit.`;
+  } else {
+    bannerBody = `<b>Nothing here is automatically detected.</b> The crawl service isn't running, so this tool cannot fetch ${site.domain} — every status below is one you recorded. Start it with <code>node server/index.js</code> to enable crawling. Requirements nobody has assessed show as <b>Unassessed</b> and earn no credit.`;
+  }
   const banner = `<div class="honesty-banner">
-      <b>Nothing here is automatically detected.</b> This tool does not visit, crawl, or inspect ${site.domain} — every status below is one you or a colleague recorded, with the reason you gave. Requirements nobody has assessed show as <b>Unassessed</b> and earn no credit, so an untouched entry can never look compliant.
+      ${bannerBody}
+      ${state.crawlError ? `<div class="crawl-error">${state.crawlError}</div>` : ''}
       <div class="honesty-progress">${progressHtml}</div>
     </div>`;
 
@@ -286,10 +322,20 @@ function renderComplianceTab(site, scan){
         else if(eff==='Partial') note = `<div class="req-note partial">${verdict.rationale}${evHover}</div>${renderPrecedentInline(req)}`;
         else if(eff==='Pending') note = `<div class="req-note">${verdict.rationale}</div>`;
         else note = `<div class="req-note">${verdict.rationale}${evHover}</div>`;
+      } else if(!site.overrides[req.id] && site.crawlFindings && site.crawlFindings[req.id] && site.crawlFindings[req.id].determinable){
+        const f = site.crawlFindings[req.id];
+        const cls = eff==='Fail' ? 'fail' : eff==='Partial' ? 'partial' : '';
+        note = `<div class="req-note ${cls}">${f.rationale}${crawlEvidenceHover(f)}</div>
+          ${f.limitation ? `<div class="crawl-limitation">What a crawl can’t tell you: ${f.limitation}</div>` : ''}
+          ${(eff==='Fail'||eff==='Partial') ? renderPrecedentInline(req) : ''}`;
       } else if(eff==='Unassessed'){
         /* Criteria to judge against — deliberately phrased as "counts as"
            rather than "we found", because nothing has been inspected. */
-        note = `<div class="req-note unassessed">Nobody has recorded a status for this yet. Check it against your live site and record what you find.
+        const cf = site.crawlFindings && site.crawlFindings[req.id];
+        const lead = (cf && !cf.determinable)
+          ? cf.rationale
+          : 'Nobody has recorded a status for this yet. Check it against your live site and record what you find.';
+        note = `<div class="req-note unassessed">${lead}
           <div class="assess-criteria"><b>Counts as Partial:</b> ${req.guide.partial}</div>
           <div class="assess-criteria"><b>Counts as Fail:</b> ${req.guide.fail}</div></div>`;
       } else {
@@ -299,7 +345,7 @@ function renderComplianceTab(site, scan){
       return `
         <div class="ledger-row">
           <div>
-            <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button><span class="source-tag ${isCodeSite?'code':''}">${isCodeSite?'Source audit':'Publicly observable'}</span>${citeHover(req)} ${req.text}</div>
+            <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button><span class="source-tag ${isCodeSite?'code':(isCrawled(site, req.id)?'crawled':'')}">${isCodeSite?'Source audit':(isCrawled(site, req.id)?'Crawled':'Publicly observable')}</span>${citeHover(req)} ${req.text}</div>
             ${!collapsed ? `
               <div class="layman-text">${req.layman}</div>
               ${note}

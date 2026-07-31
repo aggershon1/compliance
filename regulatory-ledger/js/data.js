@@ -251,6 +251,79 @@ const BILLS = [
    prep:'Watch for updated cookie-consent exemption rules that may simplify some banners.'},
 ];
 
+/* ============================================================
+   CRAWL RULES (matched against text the crawler actually retrieved)
+   ============================================================
+   Phrases, not regexes, so the Settings strictness dial governs how
+   literally they must appear — the same matcher used for self-attestations
+   (`countMatches` in reviewer.js). At "Letter of the law" only the
+   statutory wording counts; at "Lenient" a paraphrase does. This is where
+   the "Do Not Sell My Information" vs "…My Personal Information" question
+   actually gets decided, now against real page text.
+
+   Per rule:
+   - scope: 'policy' searches retrieved policy pages, 'any' searches every
+     retrieved page, 'links' searches link text across the site.
+   - cap: the best status a match can earn, where presence is detectable
+     but sufficiency isn't (a policy existing says nothing about whether
+     it's complete).
+   - needs: 'policy' means the requirement is NOT determinable unless a
+     policy page was actually retrieved — a crawl that found no policy
+     reports Unassessed, never Fail.
+   - limitation: shown alongside the result when the crawl can only
+     partially answer the question. */
+const CRAWL_RULES = {
+  'gdpr-s1': {scope:'policy', needs:'policy', cap:'Partial',
+    strong:['lawful basis','legal basis for processing'],
+    weak:['legitimate interest','legitimate interests'],
+    limitation:'A crawl can find lawful-basis language, but not whether every processing purpose is mapped to a basis. Confirm and record the real status.'},
+  'gdpr-s2': {scope:'any', cap:'Partial',
+    strong:['cookie consent','manage cookies','cookie preferences','reject all'],
+    weak:['cookie policy','we use cookies'],
+    trackerScripts:['googletagmanager','google-analytics','facebook.net','doubleclick','hotjar','segment.com','mixpanel'],
+    cmpScripts:['onetrust','cookiebot','didomi','usercentrics','cookieyes','trustarc','klaro'],
+    limitation:'Fetching a page cannot show whether trackers fire before consent, or whether "Reject All" is as easy as "Accept All" — that needs a real browser session. Treat this as evidence a banner exists, not proof it is compliant.'},
+  'gdpr-s3': {scope:'policy', needs:'policy', cap:'Partial',
+    strong:['privacy policy','privacy notice'],
+    weak:['how we use your information','how we use your data'],
+    limitation:'The crawl confirms a policy exists and was readable. Whether it covers every processing purpose in plain language is a judgment only you can make.'},
+  'gdpr-s4': {scope:'policy', needs:'policy',
+    strong:['data protection officer','dpo@'],
+    weak:['privacy@','privacy team'],
+    limitation:'Finding a contact does not confirm the role is formally designated as required.'},
+  'gdpr-s5': {scope:'policy', needs:'policy',
+    strong:['standard contractual clauses','binding corporate rules','adequacy decision'],
+    weak:['international transfers','transfer your data outside','outside the eea'],
+    limitation:'The phrase being present does not mean the safeguards are actually executed and adequate.'},
+  'gdpr-s6': {scope:'policy', needs:'policy',
+    strong:['records of processing','record of processing activities'],
+    weak:['processing register','data inventory'],
+    limitation:'Records of processing are an internal document; a public policy rarely evidences them either way.'},
+  'gdpr-s7': {scope:'policy', needs:'policy',
+    strong:['breach notification','notify the supervisory authority','personal data breach'],
+    weak:['security incident','72 hours'],
+    limitation:'A stated commitment is not evidence of a working incident-response process.'},
+  'ccpa-s1': {scope:'links', needs:'homepage',
+    strong:['do not sell or share my personal information','do not sell my personal information'],
+    weak:['do not sell my info','your privacy choices','do not sell'],
+    limitation:'The crawl checks the link exists and how it is worded. Whether it actually processes an opt-out is not verifiable this way.'},
+  'ccpa-s2': {scope:'policy', needs:'policy', cap:'Partial',
+    strong:['notice at collection'],
+    weak:['categories of personal information'],
+    limitation:'Notice-at-collection must appear at the point of collection — often on forms behind interactions a crawl does not reach.'},
+  'ccpa-s3': {scope:'policy', needs:'policy',
+    strong:['will not discriminate','non-discrimination','not discriminate against you'],
+    weak:['same level of service','equal service']},
+  'ccpa-s4': {scope:'links', needs:'homepage',
+    strong:['limit the use of my sensitive personal information'],
+    weak:['sensitive personal information'],
+    limitation:'As with the opt-out link, presence and wording are checkable; whether the control functions is not.'},
+  'ccpa-s5': {scope:'policy', needs:'policy',
+    strong:['financial incentive'],
+    weak:['loyalty program','rewards program'],
+    limitation:'If no incentive program exists this requirement may simply not apply — record NA if that is the case.'},
+};
+
 /* How literally a finding must match the letter of the law.
    `threshold` is the share of a requirement phrase's meaningful words that
    must appear for a paraphrase to count (see fuzzyPhraseMatch in

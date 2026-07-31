@@ -16,12 +16,14 @@ The core product insight driving the architecture: most of what GDPR/CCPA actual
 ```
 regulatory-ledger/
   regulatory-ledger.html   # HTML shell + CSS; loads js/*.js via plain <script> tags, no build step
+  server/                  # optional dependency-free Node crawl service (retrieval only)
   js/
     data.js                # requirement/country/bill data + strictness levels, no logic
     scoring.js              # blended scoring, assessment gating, gap ranking, exposure totals
     reviewer.js             # simulated checklist-submission reviewer
     codeaudit.js            # retired source-audit engine — NOT loaded; kept for a future ingestion path
     storage.js              # localStorage persistence of manual work (+ export/import)
+    crawl.js                # crawl-service client + rule matching over retrieved text
     render.js               # all render*()/build*HTML() functions
     app.js                  # state object + event handlers + entry lifecycle + bootstrap render()
   SPEC.md                  # full product spec, including the dual-track model and phased roadmap
@@ -33,7 +35,8 @@ regulatory-ledger/
 ## Conventions in `regulatory-ledger.html` / `js/*.js`
 
 - **No build step.** Open directly in a browser, or serve with `python3 -m http.server`. The five `js/*.js` files are loaded as plain classic `<script src>` tags (not ES modules) specifically so `file://` still works with no bundler — keep new code in that same global-scope style rather than introducing `import`/`export`. Don't introduce a bundler/framework without discussing it first — that's a deliberate simplicity choice, not an oversight.
-- **The app performs NO automated analysis and makes NO network requests.** This is load-bearing: v0.9.0 removed the simulated crawler because it fabricated findings about real companies' real websites (statuses came from `seededRandom(domain)`, and hardcoded strings like "No privacy policy found at /privacy" rendered as observations). A user acted on those as if real. **Do not reintroduce generated statuses, scores, or evidence for anything the tool has not actually inspected** — if a value can't be traced to a real inspection or a person's recorded judgment, it doesn't get displayed.
+- **The app is still a static file, but there is now an optional backend.** `server/` holds a dependency-free Node crawl service that exists for one reason: a browser cannot read another origin's pages (same-origin policy). The app degrades cleanly when it isn't running. Keep the split intact — **the server retrieves, the client judges**. Compliance logic must not migrate into `server/`; a service that only reports what it fetched cannot invent a finding.
+- **Never present un-inspected data as observed.** This is load-bearing: v0.9.0 removed the simulated crawler because it fabricated findings about real companies' real websites (statuses came from `seededRandom(domain)`, and hardcoded strings like "No privacy policy found at /privacy" rendered as observations). A user acted on those as if real. **Do not reintroduce generated statuses, scores, or evidence for anything the tool has not actually inspected** — if a value can't be traced to a real inspection or a person's recorded judgment, it doesn't get displayed.
 
   What remains, and what it is: requirement statuses are recorded by a person (real); the checklist reviewer (`reviewSubmission`) is keyword-matching over the user's own typed description, so it's a drafting aid rather than a verdict; the legislation list is static seed data; enforcement cases are real public actions. The source-audit track (v0.6.0) was genuinely real but its upload path was retired in v0.8.0 — `codeaudit.js` stays in-tree, unloaded, and pre-existing audited entries still render their stored real evidence. README.md's real-vs-mocked table is the source of truth and must be kept accurate.
 - **State lives in a single `state` object**, persisted to localStorage by `storage.js` (durable slices only — overrides, attestations, drafts, weights; never transient UI flags like `scanning`), re-rendered via a full `render()` call on every change (no framework, no virtual DOM diffing — `innerHTML` is rebuilt each time). Text inputs avoid triggering full re-renders on every keystroke (see `oninput` handlers that write to `state.drafts` without calling `render()`) to avoid losing focus/cursor position — preserve this pattern when adding new inputs.

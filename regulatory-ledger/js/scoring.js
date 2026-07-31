@@ -34,7 +34,14 @@ function rawStatus(site, scan, regKey, item, source){
      about real sites. Until a real crawler exists these are assessed by a
      person, recorded through the same override mechanism as any other
      correction, so `itemEffectiveStatus` picks it up. */
-  if(source === 'scanned') return 'Unassessed';
+  if(source === 'scanned'){
+    /* A crawl finding is a real observation of a real page, so it stands as
+       the recorded status — but only where the crawl could actually answer
+       the question. Anything it couldn't determine stays Unassessed. */
+    const f = site.crawlFindings && site.crawlFindings[item.id];
+    if(f && f.determinable && f.status) return f.status;
+    return 'Unassessed';
+  }
   const st = site.checklistState[item.id];
   if(st && st.finalized) return st.status;
   if(st && st.checked) return 'Pending';
@@ -180,15 +187,20 @@ function isChecklistItemResolved(site, item){
    v0.9.0 only the checklist gated the grade, because the observable track
    was auto-filled with simulated results; with those gone, an unassessed
    requirement is genuinely unknown and must not be graded around. */
+function hasObservableAssessment(site, r){
+  if(site.overrides[r.id]) return true;
+  const f = site.crawlFindings && site.crawlFindings[r.id];
+  return !!(f && f.determinable && f.status);
+}
 function allRequirementsAssessed(site, regKey){
   const {scanned, checklist} = regDefs(regKey);
-  return scanned.every(r => !!site.overrides[r.id])
+  return scanned.every(r => hasObservableAssessment(site, r))
       && checklist.every(item => isChecklistItemResolved(site, item));
 }
 function assessmentProgress(site, regKey){
   const {scanned, checklist} = regDefs(regKey);
   const total = scanned.length + checklist.length;
-  const done = scanned.filter(r=>!!site.overrides[r.id]).length
+  const done = scanned.filter(r=>hasObservableAssessment(site, r)).length
              + checklist.filter(i=>isChecklistItemResolved(site, i)).length;
   return {done, total};
 }
