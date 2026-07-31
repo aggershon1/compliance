@@ -27,6 +27,9 @@ const state = {
   storageWarning: null,          // set by storage.js when a save can't fully succeed
   lastLoadedAt: null,            // timestamp of the restored session, if any
   importMessage: null,           // result banner after an import attempt
+  crawlBackend: null,            // {url, available} — detected at boot
+  crawling: false,               // a crawl is in flight
+  crawlError: null,
 };
 
 function cleanDomain(input){
@@ -169,6 +172,9 @@ function attachHandlers(site){
     window.print();
   });
 
+  const crawlBtn = document.getElementById('btn-crawl');
+  if(crawlBtn) crawlBtn.addEventListener('click', ()=>{ if(site) runCrawl(site); });
+
   const exportAuditBtn = document.getElementById('btn-export-audit');
   if(exportAuditBtn) exportAuditBtn.addEventListener('click', ()=>{
     if(!site) return;
@@ -306,6 +312,7 @@ function attachHandlers(site){
     if(isNaN(v) || !STRICTNESS_LEVELS[v]) return;
     state.strictness = v;
     reevaluateAttestations();
+    recomputeCrawlFindings();   // stored crawl text, re-judged at the new strictness
     render();
   });
 
@@ -478,7 +485,30 @@ function createEntry(domain){
   render();
 }
 
+async function runCrawl(site){
+  state.crawling = true;
+  state.crawlError = null;
+  render();
+  try{
+    const raw = await requestCrawl(site.domain);
+    if(!raw.ok){
+      state.crawlError = raw.error || 'The crawl did not complete.';
+    } else {
+      site.crawl = {raw, at: raw.fetchedAt, notes: raw.notes || []};
+      site.crawlFindings = applyCrawlRules(raw);
+      site.scans.push({timestamp: raw.fetchedAt, scanned:{GDPR:{}, CCPA:{}}, trust:null, source:'crawl'});
+    }
+  }catch(e){
+    state.crawlError = `Could not reach the crawl service at ${crawlBackendUrl()} — is it running? (${e.message})`;
+  }
+  state.crawling = false;
+  render();
+}
+
 /* Restore any previously saved session before the first paint, so manual
    overrides and attestations from earlier runs are already in place. */
 loadPersistedState();
 render();
+/* Detect the crawl service in the background. The crawl action only appears
+   once it answers, so the button never promises something isn't listening. */
+checkCrawlBackend().then(()=>render());

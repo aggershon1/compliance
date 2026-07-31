@@ -6,7 +6,7 @@ This is the forward-looking plan. For what's built today see [`CHANGELOG.md`](./
 
 ---
 
-## Where we actually are (through v0.8.0)
+## Where we actually are (through v1.0.0)
 
 The original roadmap framed the next milestone as "make the scan real" via a headless crawler. That framing is now out of date: the **source-audit track** (v0.6.0) made the harder half real first, and it turned out to be a better answer for the primary user — a PM who owns compliance for their own product and was drowning in manual overrides for everything behind a login wall.
 
@@ -23,7 +23,7 @@ The original roadmap framed the next milestone as "make the scan real" via a hea
 - **Repo uploading retired (v0.8.0)** — the browser folder-upload entry path is gone; see the open question under Later.
 - Recommendations tab, upcoming-legislation tab (static seed data), Privacy Trust score, competitor comparison, PDF summary report via print dialog.
 
-**Still simulated:** website crawling/tracker detection, the self-attested checklist reviewer (keyword heuristic, not a model call), the legislation dataset, and competitor scores. With the source-audit ingestion path retired, **new entries are once again entirely simulated** — restoring a real analysis path is the open question left in its wake. See README's real-vs-mocked table.
+**Still simulated:** the self-attested checklist reviewer (keyword heuristic, not a model call), the legislation dataset, and competitor scores. Website crawling is now real (v1.0.0, optional local service); what a fetch can't establish — tracker timing, anything behind login — is flagged rather than guessed. See README's real-vs-mocked table.
 
 ---
 
@@ -62,7 +62,8 @@ Requires a real model call, hence a backend to hold the API key. The same infras
 
 ## Later
 
-- **Restore a real analysis path.** Retiring the browser upload closed the security-review problem but reopened the one it solved: behind-login requirements are back to manual attestation, and nothing in the product is real analysis again. The candidates remain a read-only GitHub App (server-side clone) or a local CLI that emits findings without moving code. `js/codeaudit.js` and its rules are preserved in-tree for whichever wins.
+- **Headless-browser crawling.** The v1.0.0 crawler fetches pages, which cannot show whether trackers fire before consent or whether "Reject All" is as easy as "Accept All" — the substance of the consent requirement. Driving a real browser (Playwright) in the crawl service would close that gap.
+- **A real analysis path for behind-login requirements.** These remain manual attestation. A read-only GitHub App is likely blocked on the same grounds the codebase upload was; a local CLI emitting findings without moving code is the surviving candidate. `js/codeaudit.js` and its rules are preserved in-tree for it.
 - **Broader regulatory coverage** — UK GDPR, LGPD (Brazil), PIPEDA (Canada), more US state laws (Colorado, Virginia, Connecticut), and sector rules (HIPAA, COPPA, GLBA). The regulation picker and requirement data model were built to extend this way.
 - **"What changed since last audit" diff** — with multiple runs now stored per entry, surface regressions between runs rather than only point-in-time posture. Turns the tool from an audit into ongoing monitoring.
 - **Real crawler for the logged-out surface** — deliberately deprioritized. It only sees the public pages, which was never the hard part; the behind-login gap mattered more and was addressed differently.

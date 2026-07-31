@@ -2,6 +2,29 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.0.0] — Real website crawling
+
+The observable track is automated again — this time by actually fetching the site.
+
+### Added
+- **`server/` — a dependency-free Node crawl service.** A browser cannot read another origin's pages (same-origin policy blocks it, deliberately), so retrieval has to happen outside the browser. `node server/index.js`, no install step. The app detects it automatically and shows a **Crawl site** action; when it isn't running the app works exactly as before, with every requirement assessed by hand.
+- **Findings evidenced by real quotes.** Each crawled result carries the sentence it matched, the URL it came from, and whether the match was exact or a paraphrase. Hovering "evidence" shows them; you can open the URL and check.
+- **The strictness dial now governs live site text.** Crawl rules are phrases rather than regexes, matched through the same matcher as self-attestations — so a footer link reading *"Do Not Sell My Info"* passes at Lenient and is flagged at Careful/Letter-of-the-law for omitting "Personal". Changing the dial re-judges stored crawl text without re-fetching.
+- **HTTPS fallback is reported, not hidden.** If a bare domain doesn't answer over HTTPS the crawl retries over HTTP and says so — a site not serving HTTPS is worth reviewing in its own right.
+
+### Design constraints held
+- **The server retrieves; the client judges.** No compliance logic lives in `server/`. A service that only reports what it fetched cannot invent a finding — the failure mode v0.9.0 existed to correct.
+- **Undeterminable stays Unassessed, never Fail.** No policy page retrieved, or the site refused the request, means the requirement is left for a person. "We couldn't look" and "it isn't there" are different claims, and only one of them is a finding.
+- **Every requirement states what a crawl can't tell you.** Finding "Standard Contractual Clauses" in a policy proves the phrase is there, not that the safeguards are executed. Requirements where presence is checkable but sufficiency isn't are capped at Partial.
+- Tracker scripts are reported; whether they fire *before* consent is explicitly flagged as not determinable by fetching.
+
+### Security
+- SSRF protections on every fetch: http/https only, private/loopback/link-local/CGNAT/reserved addresses refused (including cloud metadata at `169.254.169.254`), **and every redirect hop re-validated** since a public URL can redirect inward. 12s timeout, 2 MB cap, 5 redirects, 4 policy pages max. Binds to loopback; not hardened for public hosting.
+
+### Notes
+- **This breaks the project's founding "no backend" constraint**, which `CLAUDE.md` and `SPEC.md` both stated. That was a deliberate, requested trade: in-app crawling is impossible without it. The static app remains fully functional standalone, so the backend is additive rather than required.
+- Verified end-to-end against a local fixture site — real fetching, policy discovery, text extraction, evidence quoting, strictness behaviour, and SSRF refusals. **Not yet verified against a live public site**, because this development environment's egress proxy blocks external hosts; that check has to happen on a normal network.
+
 ## [0.9.0] — Remove every fabricated result
 
 A user reported the tool as "buggy" for not properly scanning a real privacy policy and reporting things as missing that were plainly present. It wasn't a scanning bug: **the app never scanned anything.** Scanned statuses came from `seededRandom(domain)` — a hash of the domain string — and the accompanying "evidence" was a hardcoded string. For `gdpr-s3`, that string read *"(No privacy policy found at /privacy or linked from the footer)"*, displayed whenever the hash landed on Fail, for any site.

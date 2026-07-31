@@ -2,7 +2,7 @@
 
 A workbench for tracking a product's privacy/regulatory compliance posture against GDPR and CCPA/CPRA, adjustable by country, with upcoming legislation relevant to the markets you operate in.
 
-> **It does not scan or inspect any website.** Every status in this tool is one a person recorded, with their stated reasoning. Earlier versions simulated a crawl and presented invented findings as if observed; that was removed in v0.9.0. See [What's real](#whats-real-vs-mocked-in-this-prototype).
+> **Crawling is real, and optional.** Run the local [crawl service](./server/README.md) and the app fetches the site's public pages and checks them against the requirement text, quoting what it actually found with source URLs. Without it, the app still works — you assess each requirement yourself. Nothing is ever invented: what a crawl can't determine stays *Unassessed*. See [What's real](#whats-real-vs-mocked-in-this-prototype).
 
 **[Open the prototype](./regulatory-ledger.html)** — HTML shell + CSS, loading `js/*.js` via plain `<script>` tags, no build step. Open it directly in a browser.
 
@@ -10,7 +10,7 @@ A workbench for tracking a product's privacy/regulatory compliance posture again
 
 The app is built around one core insight: most of what GDPR/CCPA actually require — access, deletion, portability, consent management — happens **inside a logged-in product experience**, which an external crawler can never see. So compliance checking is split into tracks that roll up into **one combined score per regulation**:
 
-- **Publicly observable** — requirements you can verify yourself on the live site: privacy policy, cookie banner, terms, "Do Not Sell" link. The tool gives you the criteria and records your finding; it does not look at the site for you.
+- **Publicly observable** — privacy policy, cookie banner, terms, "Do Not Sell" link. With the crawl service running these are checked against the live site and evidenced with real quotes; without it you assess them yourself against the stated criteria.
 - **Self-attested (logged-in)** — a checklist, prepopulated per regulation, for the things only visible behind auth (self-serve access/delete/export/correct, consent preference centers). You check what you have, describe how it works, optionally attach a screenshot, and the app reviews the submission — asking a targeted follow-up question and showing a rough sketch of what "compliant" typically looks like if your first answer isn't detailed enough to judge confidently.
 - **Source audit (retired v0.8.0)** — a third track once let you upload a repo folder for real, in-browser pattern-matching against every requirement, with file/line evidence citations. The upload path was retired because shipping source into a web tool doesn't survive most security reviews. Entries audited before then remain viewable as historical records, and the engine is preserved in `js/codeaudit.js` (no longer loaded) for a future GitHub App or CLI path — see [`ROADMAP.md`](./ROADMAP.md).
 
@@ -34,7 +34,8 @@ This is a front-end prototype. It performs **no automated inspection of anything
 | Piece | Status |
 |---|---|
 | UI/UX, navigation, scoring, record-keeping | Fully functional |
-| Website crawling / tracker detection | **Does not exist.** No automated inspection of any kind. Removed in v0.9.0 — it previously generated statuses from a hash of the domain name and displayed hardcoded strings (e.g. "No privacy policy found at /privacy") as if they were observations. |
+| Website crawling | **Real**, via the optional local [crawl service](./server/README.md) — fetches the homepage and linked policy pages, and evidences every finding with a real quote and source URL. Limits are stated per requirement in the UI. |
+| Tracker behaviour (do trackers fire before consent?) | **Not determinable by fetching.** The crawl reports which third-party scripts load; whether they fire pre-consent needs a real browser session and is flagged as such. |
 | Requirement statuses | **Real** — each one recorded by a person, with their stated reason and a timestamp, kept in the audit log |
 | Source audit of an uploaded codebase | **Retired in v0.8.0.** Was real (pattern-matching your actual files in-browser, with file/line citations). Existing entries keep their real evidence; no new ones can be created. |
 | GDPR / CCPA requirement text | Real regulatory citations and requirements |
@@ -46,7 +47,7 @@ This is a front-end prototype. It performs **no automated inspection of anything
 
 ## Tech
 
-HTML shell + CSS in `regulatory-ledger.html`, loading six plain-script `js/*.js` files (data, storage, scoring, reviewer, render, app; `codeaudit.js` is retained in-tree but no longer loaded) — vanilla JS, no framework, no build step. Fonts: Fraunces (display), IBM Plex Sans (body), IBM Plex Mono (data/citations), loaded from Google Fonts CDN.
+HTML shell + CSS in `regulatory-ledger.html`, loading seven plain-script `js/*.js` files (data, storage, scoring, reviewer, crawl, render, app; `codeaudit.js` is retained in-tree but no longer loaded) — vanilla JS, no framework, no build step. The optional crawl service in `server/` is dependency-free Node. Fonts: Fraunces (display), IBM Plex Sans (body), IBM Plex Mono (data/citations), loaded from Google Fonts CDN.
 
 ## Roadmap
 

@@ -14,6 +14,8 @@ So the product is split into two data-collection tracks that feed **one combined
 
 ## Track 1 — Publicly-observable requirements (manually assessed)
 
+> **Changed again in v1.0.0.** A real crawler now exists as an optional local service (`server/`), so this track is automated again — but only for what fetching a page can actually establish, with every finding evidenced by a real quote and source URL. Requirements it cannot determine stay unassessed for a person to judge.
+>
 > **Changed in v0.9.0.** This track was specified as an automated crawl and prototyped as a *simulation* of one. The simulation produced fabricated findings about real websites and was mistaken for real output, so it was removed. The requirement set is unchanged; what changed is who assesses it — a person does, until a real crawler exists. The original specification of the automated track follows, and remains the target.
 
 ### Original specification — automated scan (logged-out surface)
