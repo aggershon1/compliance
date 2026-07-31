@@ -51,6 +51,19 @@ const FOOTER = `
   <a href="/sitemap">Sitemap</a>
 </footer>`;
 
+/* Real sites link the same document several ways — once from the header
+   without a trailing slash, once from the footer with one, once with a
+   tracking parameter attached. betterhelp.com does exactly this, and it
+   made the crawler fetch /privacy three times and burn its page budget on
+   duplicates. Reproduced here so the dedupe stays fixed. */
+const DUPLICATE_LINKS = `
+<div class="secondary-nav">
+  <a href="/privacy/">Privacy</a>
+  <a href="/privacy?ref=footer">Your privacy rights</a>
+  <a href="/legal/terms/">Terms</a>
+  <a href="/PRIVACY">Privacy policy</a>
+</div>`;
+
 function page(title, body) {
   return `<!doctype html><html><head><title>${title}</title></head><body>
 ${NAV}
@@ -66,6 +79,7 @@ const PAGES = {
        or schedule live video sessions.</p>
     <a href="/get-started">Get started</a>
     <a href="/how-it-works">See how it works</a>
+    ${DUPLICATE_LINKS}
   `),
 
   /* Legal, matches the hint list, irrelevant to data protection. */
@@ -178,8 +192,11 @@ const EXPECTED = [
 
 function start(port = PORT) {
   const server = http.createServer((req, res) => {
-    const path = new URL(req.url, 'http://127.0.0.1').pathname.replace(/\/+$/, '') || '/';
-    const body = PAGES[path];
+    const raw = new URL(req.url, 'http://127.0.0.1').pathname.replace(/\/+$/, '') || '/';
+    /* Trailing slash and case are ignored, and the query is dropped —
+       the same document, however it was linked. */
+    const path = Object.keys(PAGES).find(k => k.toLowerCase() === raw.toLowerCase());
+    const body = path ? PAGES[path] : undefined;
     if (!body) {
       res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(page('Not found', '<h1>404</h1>'));

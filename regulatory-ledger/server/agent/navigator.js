@@ -47,7 +47,7 @@
 
 const { DEFAULT_MODEL, getClient, thinkingFor } = require('./client.js');
 const {
-  fetchPage, extractText, extractTitle, extractLinks, extractScripts, normalizeTarget,
+  fetchPage, extractText, extractTitle, extractLinks, extractScripts, normalizeTarget, canonicalKey,
 } = require('../crawler.js');
 
 /* Budgets. An agent that picks its own next step needs a hard stop that
@@ -165,7 +165,11 @@ function makeFetchTool(startUrl, log, fullPages) {
     if (u.hostname !== startHost) {
       return { error: `Refused: ${u.hostname} is not ${startHost}. You may only open pages on the site being reviewed.` };
     }
-    const key = u.href;
+    /* Canonical, not literal: /privacy and /privacy/ are one page, and
+       re-opening it would spend a slot from a budget of twelve and pay for
+       the same text twice. Returning the cached record instead also tells
+       the model plainly that it has been here already. */
+    const key = canonicalKey(u.href);
     if (seen.has(key)) return { ...seen.get(key), note: 'already opened' };
 
     let res;
@@ -307,13 +311,11 @@ async function navigate(target, opts = {}) {
      Nothing the agent says survives unless the fetch log agrees it
      happened. The difference between "the model told us it opened this
      page" and "we opened this page". */
-  const retrieved = new Map(fetchLog.filter(e => e.ok).map(e => [e.url, e]));
+  const retrieved = new Map(fetchLog.filter(e => e.ok).map(e => [canonicalKey(e.url), e]));
   const pages = [];
   const dropped = [];
   for (const p of (reported && reported.pages) || []) {
-    const hit = retrieved.get(p.url)
-      || retrieved.get(p.url.replace(/\/$/, ''))
-      || retrieved.get(p.url + '/');
+    const hit = retrieved.get(canonicalKey(p.url));
     if (hit) pages.push({ ...p, url: hit.url });
     else dropped.push({ ...p, dropped_because: 'not present in the fetch log as a successful retrieval' });
   }
@@ -348,8 +350,9 @@ async function crawlWithAgent(target, opts = {}) {
 
   const notes = [];
   const pages = [];
+  const startKey = canonicalKey(run.target);
   const startPage = run.fullPages.get(run.target)
-    || [...run.fullPages.values()].find(p => p.url.replace(/\/$/, '') === run.target.replace(/\/$/, ''));
+    || [...run.fullPages.values()].find(p => canonicalKey(p.url) === startKey);
 
   if (startPage) {
     pages.push({ role: 'homepage', ...startPage });
@@ -364,7 +367,7 @@ async function crawlWithAgent(target, opts = {}) {
   };
 
   for (const p of run.pages) {
-    if (startPage && p.url === startPage.url) continue;
+    if (startPage && canonicalKey(p.url) === canonicalKey(startPage.url)) continue;
     const full = run.fullPages.get(p.url);
     if (!full) continue;   // belt and braces; the gate should already have caught this
     pages.push({
