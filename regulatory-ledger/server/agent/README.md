@@ -29,8 +29,12 @@ The general principle, which is the part worth carrying to the next agent in thi
 
 ## Running it
 
+This spike lives only on the `claude/project-summary-docs-c4byep` branch (PR #12). If `git branch --show-current` says `main`, this directory won't exist yet — check the branch out first.
+
+Paths below are from the **repository root**:
+
 ```bash
-cd server/agent
+cd regulatory-ledger/server/agent
 npm install                      # only this directory has dependencies
 
 node eval.js --heuristic-only    # no API key needed — see the baseline
