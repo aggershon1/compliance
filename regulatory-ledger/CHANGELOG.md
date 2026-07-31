@@ -2,6 +2,19 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.1.1] — Stop crawling the same page three times
+
+A run against betterhelp.com opened seven pages that were four unique documents: `/privacy` three times, `/terms` twice.
+
+### Fixed
+- **Pages are deduped on a canonical key** — host and path, ignoring case, trailing slash, query and fragment — instead of the literal URL. Sites link the same document from the header, from the footer, and again with a tracking parameter attached; `/privacy`, `/privacy/`, `/PRIVACY` and `/privacy?ref=footer` are one page. With a ten-page ceiling, duplicates cost reach directly, which is the same problem depth-2 discovery was added to solve.
+- **Redirects are re-checked after the fetch.** `/privacy` and `/privacy/` are two queue entries that land on one page, and the dedupe previously ran only on the URL requested, never on the one actually reached.
+- **Already-retrieved pages no longer consume discovery slots.** Each level picks at most four pages; pages already in hand were eligible to fill those slots.
+- The same fix applies to the navigator agent, where a duplicate fetch also meant paying for the same page text twice.
+
+### Verified
+On a fixture whose homepage links `/privacy` four different ways, the crawl now opens each document once. As a side effect the real policy is reached *earlier* — it no longer sits behind duplicate entries — so it now survives the per-level cap that the DMCA and accessibility pages were crowding.
+
 ## [1.1.0] — Agents: navigation and attestation review
 
 Two model-backed agents, both optional, both degrading cleanly to what the app did before. The first replaces a heuristic that needed hand-tuning per site; the second replaces the last remaining simulated verdict in the product.

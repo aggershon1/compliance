@@ -195,7 +195,30 @@ const POLICY_HINTS = [
   /terms/i, /notice/i, /opt[-\s]?out/i, /california/i, /consumer[-\s]rights/i,
   /limit[-\s]the[-\s]use/i, /sensitive[-\s]information/i,
 ];
-function discoverPolicyLinks(links, baseUrl){
+/* Sites link the same document several ways: /privacy and /privacy/, with a
+   tracking query attached, from the header and again from the footer, on
+   www and on the apex. Comparing literal URLs treats those as different
+   pages, so the page budget gets spent fetching one policy three times —
+   which is the same loss of reach that made depth-2 discovery necessary.
+
+   Dedupe on host + path instead, case- and trailing-slash-insensitive, and
+   ignore the query and fragment. Two policy pages distinguished only by a
+   query string would collapse together, which is a trade worth making: it
+   is far rarer than the same page linked three ways. */
+function canonicalKey(rawUrl){
+  try{
+    const u = new URL(rawUrl);
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    const path = u.pathname.replace(/\/+$/, '').toLowerCase() || '/';
+    return host + path;
+  }catch(e){
+    return String(rawUrl);
+  }
+}
+
+/* `exclude` holds the canonical keys already fetched or queued, so pages we
+   have in hand don't consume discovery slots. */
+function discoverPolicyLinks(links, baseUrl, exclude){
   const base = new URL(baseUrl);
   const seen = new Set();
   const picked = [];
@@ -205,8 +228,9 @@ function discoverPolicyLinks(links, baseUrl){
     if(u.hostname !== base.hostname) continue;        // stay on the site
     const hay = `${l.text} ${u.pathname}`;
     if(!POLICY_HINTS.some(re => re.test(hay))) continue;
-    const key = u.origin + u.pathname;
+    const key = canonicalKey(u.href);
     if(seen.has(key)) continue;
+    if(exclude && exclude.has(key)) continue;
     seen.add(key);
     picked.push({url: u.href, linkText: l.text});
     if(picked.length >= MAX_POLICY_PAGES) break;
@@ -262,8 +286,8 @@ async function crawl(target){
      documents several CCPA requirements depend on. Depth stops at two:
      enough to reach real sub-policies, not so much that this becomes a
      general-purpose spider hammering someone's site. */
-  const seenUrls = new Set(pages.map(p => p.url));
-  const policyLinks = discoverPolicyLinks(homeLinks, homeRes.url);
+  const seenUrls = new Set(pages.map(p => canonicalKey(p.url)));
+  const policyLinks = discoverPolicyLinks(homeLinks, homeRes.url, seenUrls);
   if(policyLinks.length === 0){
     notes.push('No privacy/legal links were found on the homepage, so policy text could not be retrieved. Requirements that depend on policy wording are reported as not determinable rather than failing.');
   }
@@ -272,10 +296,19 @@ async function crawl(target){
     const nextFrontier = [];
     for(const pl of frontier){
       if(pages.length >= MAX_TOTAL_PAGES) break;
-      if(seenUrls.has(pl.url)) continue;
-      seenUrls.add(pl.url);
+      const key = canonicalKey(pl.url);
+      if(seenUrls.has(key)) continue;
+      seenUrls.add(key);
       try{
         const r = await fetchPage(pl.url);
+        /* Redirects are the other half of this: /privacy and /privacy/ are
+           two queue entries that land on one page. Check again on the URL
+           we actually ended up at, not just the one we asked for. */
+        const finalKey = canonicalKey(r.url);
+        if(finalKey !== key){
+          if(seenUrls.has(finalKey)) continue;
+          seenUrls.add(finalKey);
+        }
         if(!r.html){ notes.push(`Skipped ${pl.url} (${r.skipped || 'status '+r.status}).`); continue; }
         const pageLinks = extractLinks(r.html, r.url);
         pages.push({
@@ -291,8 +324,8 @@ async function crawl(target){
           truncated: r.truncated,
         });
         if(depth === 0){
-          for(const cand of discoverPolicyLinks(pageLinks, r.url)){
-            if(!seenUrls.has(cand.url)) nextFrontier.push(cand);
+          for(const cand of discoverPolicyLinks(pageLinks, r.url, seenUrls)){
+            if(!seenUrls.has(canonicalKey(cand.url))) nextFrontier.push(cand);
           }
         }
       }catch(e){
@@ -315,4 +348,4 @@ async function crawl(target){
   };
 }
 
-module.exports = { crawl, fetchPage, extractText, extractTitle, extractLinks, extractScripts, discoverPolicyLinks, assertSafeUrl, isBlockedIp, normalizeTarget };
+module.exports = { crawl, fetchPage, extractText, extractTitle, extractLinks, extractScripts, discoverPolicyLinks, canonicalKey, assertSafeUrl, isBlockedIp, normalizeTarget };
