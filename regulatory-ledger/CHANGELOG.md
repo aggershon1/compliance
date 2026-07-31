@@ -2,6 +2,18 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.0.1] — Crawl reaches sub-policies
+
+Diagnosing a real run against a live site: the crawl retrieved only two pages, because the homepage linked just "Privacy Policy" and "Terms & Conditions". The HTML was complete (51 links) — so this was not a rendering or bot-protection problem, it was reach.
+
+### Changed
+- **Discovery now goes two levels deep.** Sites routinely keep their California notice, cookie policy and opt-out pages one click *inside* the privacy policy rather than on the homepage — precisely where several CCPA requirements are evidenced. A hard ceiling of 10 pages keeps this a targeted retriever rather than a spider.
+- **More link hints**: `terms`, `notice`, `opt-out`, `california`, `consumer rights`, `limit the use`, `sensitive information`. Terms pages were previously skipped entirely.
+- **You can start from a specific page.** Entering `betterhelp.com/privacy` now crawls that page instead of being reduced to the bare domain — useful when you already know where a document lives and don't want to depend on discovery.
+
+### Verified
+Against a fixture shaped like the real site (homepage links only privacy + terms; California notice and cookie policy linked only from the privacy page): retrieval went from **2 pages to 5**, and requirements the crawl could determine went from partial coverage to **12 of 12** — with non-discrimination, notice-at-collection and sensitive-PI findings all coming from the depth-2 California notice that was previously unreachable.
+
 ## [1.0.0] — Real website crawling
 
 The observable track is automated again — this time by actually fetching the site.

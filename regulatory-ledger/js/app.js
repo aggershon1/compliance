@@ -32,10 +32,13 @@ const state = {
   crawlError: null,
 };
 
+/* Keeps any path the user typed. Entering "betterhelp.com/privacy" should
+   start the crawl at that page — useful when you already know where a
+   document lives and don't want to rely on link discovery finding it. */
 function cleanDomain(input){
   let d = input.trim().toLowerCase();
   d = d.replace(/^https?:\/\//, '').replace(/^www\./, '');
-  d = d.split('/')[0];
+  d = d.replace(/\/+$/, '');
   return d || 'example.com';
 }
 function pad3(n){ return String(n).padStart(3,'0'); }

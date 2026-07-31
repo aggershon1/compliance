@@ -24,7 +24,11 @@ Node 18+ required (it uses built-in `fetch`). **No dependencies, no install step
 
 ## What it does and doesn't do
 
-It **retrieves**: the homepage, up to four linked privacy/legal/cookie pages on the same host, and for each one the readable text, links, and script sources.
+It **retrieves**: the starting page, then privacy/legal/cookie/terms pages linked from it, then one further level of policy pages linked from *those* — capped at 10 pages total. For each it returns the readable text, links, and script sources.
+
+Two levels matter in practice. Sites commonly link only "Privacy Policy" from the homepage and keep the California notice, cookie policy and opt-out pages one click deeper — which is exactly where several CCPA requirements are evidenced. Depth stops at two so this stays a targeted retriever rather than a general-purpose spider.
+
+You can also start from a specific page (`betterhelp.com/privacy`) rather than a bare domain, which skips link discovery entirely when you already know where a document lives.
 
 It **does not judge**. No compliance logic lives here. The app applies the requirement rules and your strictness setting to what was actually retrieved. That split is deliberate: a server that only reports what it fetched cannot invent a finding, which is the failure this project already had to correct once (see CHANGELOG v0.9.0).
 
