@@ -235,7 +235,7 @@ function recomputeCrawlFindings(){
    no explanation, leaving the phrase-matched text on screen looking like
    the reviewer had read the page and said that. Third time this shape of
    bug has bitten; "returns nothing" is never an acceptable outcome here. */
-async function requestAnalysis(site, regKeys){
+async function requestAnalysis(site){
   if(!site.crawl || !site.crawl.raw || !Array.isArray(site.crawl.raw.pages)){
     return {ok:false, error:'there was no stored crawl to read.'};
   }
@@ -246,14 +246,28 @@ async function requestAnalysis(site, regKeys){
     return {ok:false, error:`none of the ${site.crawl.raw.pages.length} retrieved page(s) had enough readable text to assess — the site may render its content with JavaScript, which this crawler cannot run.`};
   }
 
-  /* Only requirements that have a crawl rule: the rule is what says this
-     is checkable from a public page at all, and it carries the cap. */
+  /* Every requirement that has a crawl rule, regardless of which
+     regulations are in scope right now.
+
+     Scoping this to `effectiveRegs(site)` was a real bug: analysis ran once,
+     at crawl time, against whatever was selected then. Turn GDPR on
+     afterwards and its requirements were never read — they kept their
+     phrase-matched findings permanently, still showing "whether it covers
+     every processing purpose is a judgment only you can make" on a build
+     where the reviewer would have judged it.
+
+     The cost of the wider set is negligible: it is one call either way, the
+     pages dominate the tokens, and going from ~6 requirements to ~12 barely
+     moves it. Scoping decides what gets *scored*, which is a separate
+     question from what gets read. */
+  const rules = Object.keys(CRAWL_RULES);
   const reqs = [];
-  (regKeys || []).forEach(regKey=>{
+  ['GDPR','CCPA'].forEach(regKey=>{
     const defs = regDefs(regKey);
     if(!defs || !defs.scanned) return;
     defs.scanned.forEach(r=>{
       if(!CRAWL_RULES[r.id]) return;
+      if(reqs.some(x => x.id === r.id)) return;
       reqs.push({
         id: r.id, code: r.code, text: r.text, layman: r.layman,
         guidePartial: r.guide && r.guide.partial,
@@ -262,7 +276,7 @@ async function requestAnalysis(site, regKeys){
     });
   });
   if(!reqs.length){
-    return {ok:false, error:`no regulation is in scope for this entry (${(regKeys||[]).join(', ') || 'none selected'}), so there was nothing to assess the pages against. Turn on GDPR or CCPA/CPRA above.`};
+    return {ok:false, error:`no requirement has a crawl rule to assess against (${rules.length} rule(s) defined) — this is a bug, not a configuration problem.`};
   }
 
   try{
