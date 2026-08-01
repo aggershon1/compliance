@@ -97,7 +97,10 @@ function renderMain(site){
         <button class="export-btn" id="btn-export">↓ Export PDF report</button>
         <button class="ff-btn" id="btn-fastforward" title="Demo only: ages all self-attested items by 100 days">⏩ Simulate 100 days (demo)</button>
         ${state.crawlBackend && state.crawlBackend.available && site.kind!=='code'
-          ? `<button class="rescan-btn" id="btn-crawl" ${state.crawling?'disabled':''}>${state.analyzing ? '⟳ Reading the pages…' : state.crawling ? '⟳ Crawling…' : (site.crawl ? '⟳ Re-crawl site' : '⟳ Crawl site')}</button>`
+          ? `<button class="rescan-btn" id="btn-crawl" ${(state.crawling||state.analyzing)?'disabled':''}>${state.analyzing ? '⟳ Reading the pages…' : state.crawling ? '⟳ Crawling…' : (site.crawl ? '⟳ Re-crawl site' : '⟳ Crawl site')}</button>`
+          : ''}
+        ${site.crawl && state.crawlBackend && state.crawlBackend.agent && state.crawlBackend.agent.available && site.kind!=='code'
+          ? `<button class="rescan-btn" id="btn-analyze" ${(state.crawling||state.analyzing)?'disabled':''} title="Assess the pages already retrieved — no new requests to the site">${state.analyzing ? '⟳ Reading…' : '⟳ Read the retrieved pages'}</button>`
           : ''}
         <button class="export-btn" id="btn-export-audit">↓ Export audit log</button>
       </div>

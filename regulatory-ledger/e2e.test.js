@@ -60,6 +60,9 @@ const findings = [
   { requirement_id: 'gdpr-s6', verdict: 'not_addressed', citations: [],
     reasoning: 'Nothing in the retrieved pages speaks to records of processing activities.',
     beyond_the_document: 'Records of processing are internal documents.' },
+  { requirement_id: 'ccpa-s2', verdict: 'falls_short', citations: [],
+    reasoning: 'The notice describes collection but not at the point of collection.',
+    beyond_the_document: 'Notice at collection appears on forms a crawl does not reach.' },
 ];
 class Fake {
   constructor(){
@@ -136,9 +139,14 @@ function start(cmd, args, env, readyRe) {
     await page.waitForTimeout(100);
     await page.$eval('#new-scan-form', f => f.requestSubmit());
     await page.waitForTimeout(400);
+    /* Deliberately crawl with only GDPR in scope. Analysis used to be
+       limited to whatever was selected at that moment, so CCPA
+       requirements were never read and kept phrase findings forever. */
     await page.evaluate(() => {
       const s = state.sites.find(x => x.id === state.selectedSiteId);
       s.manualRegs.GDPR = true;
+      s.manualRegs.CCPA = false;
+      s.selectedCountries = [];
       state.activeReg = 'GDPR';
       render();
     });
@@ -161,7 +169,7 @@ function start(cmd, args, env, readyRe) {
         error: state.crawlError,
         pages: s.crawl ? s.crawl.raw.pages.length : 0,
         notes: (s.crawl && s.crawl.notes) || [],
-        s1: f['gdpr-s1'], s3: f['gdpr-s3'], s6: f['gdpr-s6'],
+        s1: f['gdpr-s1'], s3: f['gdpr-s3'], s6: f['gdpr-s6'], ccpa2: f['ccpa-s2'],
         analysisMeta: s.analysisMeta,
       };
     });
@@ -186,6 +194,22 @@ function start(cmd, args, env, readyRe) {
     check('absence is scoped to the pages searched',
       result.s6 && /statement about these pages/.test(result.s6.rationale || ''),
       result.s6 && (result.s6.rationale || '').slice(-70));
+
+    check('requirements outside the crawl-time scope are still read',
+      result.ccpa2 && result.ccpa2.via === 'analyst',
+      result.ccpa2 ? result.ccpa2.via : 'no finding at all');
+
+    /* Re-reading a stored crawl must not hit the site again. */
+    const before = await page.evaluate(() => state.sites.find(x => x.id === state.selectedSiteId).analysisMeta.at);
+    await page.waitForTimeout(1100);
+    await page.click('#btn-analyze');
+    for (let i = 0; i < 40; i++) {
+      if (!(await page.evaluate(() => state.analyzing))) break;
+      await page.waitForTimeout(200);
+    }
+    const after = await page.evaluate(() => state.sites.find(x => x.id === state.selectedSiteId).analysisMeta.at);
+    check('“Read the retrieved pages” re-runs analysis without re-crawling', after > before,
+      `${before} -> ${after}`);
 
     const shown = await page.evaluate(() => document.body.innerText);
     check('the stale sentence is gone from the page', !shown.includes(stale));

@@ -367,6 +367,9 @@ function attachHandlers(site){
   });
 
   /* ---- Region selector, passing drawer, focus mode ------------------- */
+  const analyzeBtn = document.getElementById('btn-analyze');
+  if(analyzeBtn) analyzeBtn.addEventListener('click', ()=>{ runAnalysis(site); });
+
   document.querySelectorAll('[data-select-reg]').forEach(el=>{
     el.addEventListener('click', ()=>{
       state.activeReg = el.getAttribute('data-select-reg');
@@ -654,6 +657,35 @@ function createEntry(domain){
   render();
 }
 
+/* Read the pages of a stored crawl. Separate from runCrawl so it can be
+   re-run without re-fetching the site — you should not have to hit a real
+   site again because the reviewer wasn't reachable the first time, or
+   because you turned a regulation on afterwards. */
+async function runAnalysis(site){
+  if(!site.crawl) return;
+  state.analyzing = true;
+  render();
+  try{
+    const analysis = await requestAnalysis(site);
+    if(analysis && analysis.ok){
+      const n = applyAnalysis(site, analysis);
+      site.crawl.notes = n
+        ? site.crawl.notes.filter(x => !/were retrieved but not read|but returned no findings/.test(x))
+        : [...site.crawl.notes, 'The reviewer read the pages but returned no findings. Everything below comes from wording matches only.'];
+    } else {
+      /* Any non-ok outcome, including one with no error text, has to say
+         something. Silence here is what made a stale phrase-rule line look
+         like a considered verdict. */
+      const why = (analysis && analysis.error) || 'the reviewer returned nothing.';
+      site.crawl.notes = [...site.crawl.notes, `The pages were retrieved but not read: ${why} Findings below come from wording matches only.`];
+    }
+  }catch(e){
+    site.crawl.notes = [...site.crawl.notes, `The pages were retrieved but not read (${e.message}). Findings below come from wording matches only.`];
+  }
+  state.analyzing = false;
+  render();
+}
+
 async function runCrawl(site){
   state.crawling = true;
   state.crawlError = null;
@@ -687,23 +719,7 @@ async function runCrawl(site){
         site.crawl.notes = [...site.crawl.notes,
           `The pages were retrieved but not read — ${why}. Findings below come from matching expected wording only, which is why some say the judgment is yours.`];
       } else {
-        state.analyzing = true;
-        render();
-        try{
-          const eff = effectiveRegs(site);
-          const regKeys = [];
-          if(eff.GDPR) regKeys.push('GDPR');
-          if(eff.CCPA) regKeys.push('CCPA');
-          const analysis = await requestAnalysis(site, regKeys);
-          if(analysis && analysis.ok){
-            applyAnalysis(site, analysis);
-          } else if(analysis && analysis.error){
-            site.crawl.notes = [...site.crawl.notes, `The pages were retrieved but not read: ${analysis.error} Findings below come from wording matches only.`];
-          }
-        }catch(e){
-          site.crawl.notes = [...site.crawl.notes, `The pages were retrieved but not read (${e.message}). Findings below come from wording matches only.`];
-        }
-        state.analyzing = false;
+        await runAnalysis(site);
       }
     }
   }catch(e){

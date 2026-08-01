@@ -229,19 +229,45 @@ function recomputeCrawlFindings(){
    which one produced a given result — the two are not equally strong and
    the difference is provenance. */
 
-async function requestAnalysis(site, regKeys){
-  if(!site.crawl || !site.crawl.raw || !site.crawl.raw.pages) return null;
+/* Every exit from here reports a reason. It used to return bare `null` in
+   three places, and the caller checked `analysis.ok` then `analysis.error`
+   — so null fell through both and the crawl finished with no analysis and
+   no explanation, leaving the phrase-matched text on screen looking like
+   the reviewer had read the page and said that. Third time this shape of
+   bug has bitten; "returns nothing" is never an acceptable outcome here. */
+async function requestAnalysis(site){
+  if(!site.crawl || !site.crawl.raw || !Array.isArray(site.crawl.raw.pages)){
+    return {ok:false, error:'there was no stored crawl to read.'};
+  }
   const pages = site.crawl.raw.pages
     .filter(p => p.text && p.text.length > 100)
     .map(p => ({url: p.url, title: p.title, text: p.text}));
-  if(!pages.length) return null;
+  if(!pages.length){
+    return {ok:false, error:`none of the ${site.crawl.raw.pages.length} retrieved page(s) had enough readable text to assess — the site may render its content with JavaScript, which this crawler cannot run.`};
+  }
 
-  /* Only requirements that have a crawl rule: the rule is what says this
-     is checkable from a public page at all, and it carries the cap. */
+  /* Every requirement that has a crawl rule, regardless of which
+     regulations are in scope right now.
+
+     Scoping this to `effectiveRegs(site)` was a real bug: analysis ran once,
+     at crawl time, against whatever was selected then. Turn GDPR on
+     afterwards and its requirements were never read — they kept their
+     phrase-matched findings permanently, still showing "whether it covers
+     every processing purpose is a judgment only you can make" on a build
+     where the reviewer would have judged it.
+
+     The cost of the wider set is negligible: it is one call either way, the
+     pages dominate the tokens, and going from ~6 requirements to ~12 barely
+     moves it. Scoping decides what gets *scored*, which is a separate
+     question from what gets read. */
+  const rules = Object.keys(CRAWL_RULES);
   const reqs = [];
-  regKeys.forEach(regKey=>{
-    regDefs(regKey).scanned.forEach(r=>{
+  ['GDPR','CCPA'].forEach(regKey=>{
+    const defs = regDefs(regKey);
+    if(!defs || !defs.scanned) return;
+    defs.scanned.forEach(r=>{
       if(!CRAWL_RULES[r.id]) return;
+      if(reqs.some(x => x.id === r.id)) return;
       reqs.push({
         id: r.id, code: r.code, text: r.text, layman: r.layman,
         guidePartial: r.guide && r.guide.partial,
@@ -249,14 +275,23 @@ async function requestAnalysis(site, regKeys){
       });
     });
   });
-  if(!reqs.length) return null;
+  if(!reqs.length){
+    return {ok:false, error:`no requirement has a crawl rule to assess against (${rules.length} rule(s) defined) — this is a bug, not a configuration problem.`};
+  }
 
-  const res = await fetch(crawlBackendUrl() + '/api/analyze', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({requirements: reqs, pages, strictness: strictnessSetting()}),
-  });
-  return await res.json();
+  try{
+    const res = await fetch(crawlBackendUrl() + '/api/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({requirements: reqs, pages, strictness: strictnessSetting()}),
+    });
+    if(!res.ok){
+      return {ok:false, error:`the crawl service answered ${res.status} for /api/analyze — if it was started before this feature existed, restart it.`};
+    }
+    return await res.json();
+  }catch(e){
+    return {ok:false, error:`the request to /api/analyze failed (${e.message}).`};
+  }
 }
 
 /* Absence is only ever a claim about the pages we actually read, so the
