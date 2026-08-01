@@ -41,9 +41,17 @@ Two levels matter in practice. Sites commonly link only "Privacy Policy" from th
 
 You can also start from a specific page (`betterhelp.com/privacy`) rather than a bare domain, which skips link discovery entirely when you already know where a document lives.
 
-It **does not judge the website**. No compliance logic runs against retrieved pages here — the app applies the requirement rules and your strictness setting to what was actually fetched. That split is deliberate: a service that only reports what it retrieved cannot invent a finding about a real company's real site, which is the failure this project already had to correct once (see CHANGELOG v0.9.0). The navigator agent doesn't change that; it decides *which pages to open*, never what they mean.
+It **judges documents, never companies**, and that distinction carries the whole design.
 
-One thing here does now make a judgment, and it is worth being precise about what: `POST /api/attest` reviews **the user's own written description** of a flow that lives behind a login, against the legal citation. It has no access to the product and observes nothing. It answers "does the implementation you describe satisfy this article?" — not "is this true?" — and every attestation it records must cite the user's own words, verbatim, or it is marked ungrounded. See [`agent/README.md`](./agent/README.md).
+Retrieval and phrase matching are unchanged: the app still applies the requirement rules and your strictness setting to what was fetched. What the service now also does, when a model is configured, is *read* those pages — `POST /api/analyze` measures the retrieved text against each requirement and returns a verdict with the passages it relied on.
+
+That was originally forbidden here ("the server retrieves, the client judges"), so it is worth saying plainly what changed and what didn't. The purpose of that rule was fabrication prevention — a service that only reports what it fetched cannot invent a finding about a real company. That purpose is now served directly rather than structurally:
+
+- Every "satisfies" or "falls short" verdict must quote the retrieved text, and each quote is checked verbatim against the page it claims to come from. Quotes that aren't there are dropped; a verdict left with none is downgraded to *cannot determine*, never kept as a bare assertion.
+- An absence claim is permitted only because the full text of the searched pages is in hand, and it is reported — and rendered — as "not present in these N pages", never as "the company does not do this". That distinction is exactly what went wrong in v0.9.0.
+- "The policy states a retention period" is checkable. "The company honours it" is not, and there is no field in the tool schema to say it.
+
+Two other judgments live here, both narrow. `POST /api/attest` reviews **the user's own written description** of a behind-login flow against the citation — it has no access to the product and observes nothing, and every attestation must cite the user's own words verbatim or it is marked ungrounded. The navigator agent decides *which pages to open*, never what they mean. See [`agent/README.md`](./agent/README.md).
 
 What a fetch genuinely cannot establish, and where the app says so:
 
@@ -75,6 +83,11 @@ GET /api/crawl?url=example.com&mode=auto|agent|links
   -> {"ok":true,"target":"https://example.com/","fetchedAt":...,"pages":[...],
       "notes":[...],"discovery":{"method":"agent","model":"…","opened":6,"selected":4}}
   -> {"ok":false,"error":"Could not retrieve https://… — the hostname did not resolve."}
+
+POST /api/analyze  {requirements:[{id,code,text,layman,…}], pages:[{url,title,text}], strictness}
+  -> {"ok":true,"findings":{"gdpr-s1":{"verdict":"satisfies","citations":[…],
+      "reasoning":"…","beyondTheDocument":"…","pagesSearched":[…]}},"missing":[]}
+  -> {"ok":false,"error":"…","fallback":"phrases"}
 
 POST /api/attest   {item:{code,text,layman,guidance}, description, hasScreenshot, turns, strictness}
   -> {"ok":true,"needsFollowUp":true,"followUpQuestion":"…","whyItMatters":"…"}

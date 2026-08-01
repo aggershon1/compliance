@@ -29,6 +29,7 @@ const state = {
   importMessage: null,           // result banner after an import attempt
   crawlBackend: null,            // {url, available, agent} — detected at boot
   crawling: false,               // a crawl is in flight
+  analyzing: false,              // the reviewer is reading the retrieved pages
   crawlError: null,
   /* Link patterns by default: measured against betterhelp.com the agent
      returns the same pages, so running it by default would spend tokens
@@ -665,6 +666,30 @@ async function runCrawl(site){
       site.crawl = {raw, at: raw.fetchedAt, notes: raw.notes || []};
       site.crawlFindings = applyCrawlRules(raw);
       site.scans.push({timestamp: raw.fetchedAt, scanned:{GDPR:{}, CCPA:{}}, trust:null, source:'crawl'});
+
+      /* Phrase matching is the baseline and always runs. If the reviewer is
+         available it then reads the same pages properly and supersedes what
+         it could judge — a keyword hit and a read assessment are not the
+         same evidence, so which one produced a finding is recorded on it. */
+      if(attestBackendReady()){
+        state.analyzing = true;
+        render();
+        try{
+          const eff = effectiveRegs(site);
+          const regKeys = [];
+          if(eff.GDPR) regKeys.push('GDPR');
+          if(eff.CCPA) regKeys.push('CCPA');
+          const analysis = await requestAnalysis(site, regKeys);
+          if(analysis && analysis.ok){
+            applyAnalysis(site, analysis);
+          } else if(analysis && analysis.error){
+            site.crawl.notes = [...site.crawl.notes, `The pages were retrieved but not read: ${analysis.error} Findings below come from wording matches only.`];
+          }
+        }catch(e){
+          site.crawl.notes = [...site.crawl.notes, `The pages were retrieved but not read (${e.message}). Findings below come from wording matches only.`];
+        }
+        state.analyzing = false;
+      }
     }
   }catch(e){
     state.crawlError = `Could not reach the crawl service at ${crawlBackendUrl()} — is it running? (${e.message})`;

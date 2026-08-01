@@ -2,6 +2,37 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.3.0] — The crawl reads what it retrieved
+
+Two things, one small and one that changes what this tool is for.
+
+### Fixed
+- **Partial and Fail now share one flow.** The action on a Partial said "Override this result" — framing it as disputing the tool, when what it actually wants is for you to go and check the thing. Anything not passing now offers **"Record your assessment"** and asks *what did you check, and what did you find?* Only a Pass is framed as an override, because only there would you be arguing with a positive result.
+
+### Added
+- **The policy analyst.** The crawl retrieved documents and then declined to read them. It matched phrases: it could tell you "lawful basis" appeared in a policy, not whether every processing purpose was mapped to one — so the UI said things like *"whether it covers every processing purpose in plain language is a judgment only you can make."* Retrieving a document and then handing it back unread is a thin offer.
+
+  It now reads. Given the requirement and the text actually retrieved, it returns a verdict with the passages it relied on. Findings merge into the same shape the phrase rules produce, so scoring, overrides and the audit log work unchanged — but each row says which method produced it, because a keyword hit and a read assessment are not the same evidence.
+
+- Requirements capped at Partial **because keyword matching couldn't read** (`gdpr-s1`, `gdpr-s3`) can now reach Pass when the analyst assessed them. Caps that exist because the answer lives outside the document — whether trackers fire before consent, whether a form behind a login carries a notice — survive analysis, because no amount of reading answers those.
+- The limitation line is now written per requirement by the reviewer that read it, and headed "What reading the document can't establish" rather than "What a crawl can't tell you".
+
+### The honesty work
+This is the first thing in the tool that renders a verdict about a real company's published documents, so the gate is the strictest yet:
+
+- Every "satisfies" or "falls short" must quote the retrieved text, and each quote is checked **verbatim against the page it claims to come from**. A passage found on a different page is re-attributed rather than dropped; a passage found nowhere is dropped.
+- A verdict left with no surviving quote is **downgraded to undetermined**, and the downgrade is shown — not silently kept as a fluent assertion.
+- Absence claims are permitted only because the full text of the searched pages is in hand, and they render as **"not present in the 4 pages retrieved (listed) — that is a statement about these pages, not about the company."** That distinction is precisely what went wrong in v0.9.0.
+- It judges the **document**, never the company. "The policy states a retention period" is checkable and sayable. "The company honours it" is neither, and there is no field to say it.
+
+All requirements for a regulation are judged in one call, with the pages included once — twelve calls would mean paying for the whole policy twelve times. Each finding is gated independently, so batching costs nothing in rigour.
+
+### Convention changed
+`CLAUDE.md` said the server retrieves and the client judges, and that website compliance logic must not live server-side. The API key can only live server-side, so there was no version of this that ran in the browser. The rule's *purpose* was fabrication prevention, and that is now served directly by the citation gate rather than structurally by the split. Documented in `CLAUDE.md` and `server/README.md` rather than quietly diverged from.
+
+### Verified
+18 new offline checks on the analyst and its gate, plus 13 in the browser covering the Partial/Fail flow fix, the provenance tag, the cap rules and the scoped absence wording. 59 browser checks and 5 server suites in total.
+
 ## [1.2.0] — One regulation at a time, a queue to work through, and evidence
 
 The compliance page had become the thing you scroll past. Two full requirement sets stacked on one screen, passing items interleaved with open ones, and no way to work through what was left except by hunting.

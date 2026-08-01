@@ -200,3 +200,127 @@ function recomputeCrawlFindings(){
     }
   });
 }
+
+
+/* ============================================================
+   POLICY ANALYSIS — the reviewer reads what was retrieved
+   ============================================================
+   Phrase matching can tell you "lawful basis" appears in a policy. It
+   cannot tell you whether every processing purpose is mapped to one, which
+   is what the citation actually asks — so the UI used to say the judgment
+   was yours alone. Retrieving a document and then declining to read it is
+   a thin offer, and this closes it.
+
+   The analyst's findings are merged into the same `crawlFindings` shape the
+   phrase rules produce, so scoring, overrides, the audit log and every
+   render path work unchanged. What differs is `via`, so the UI can say
+   which one produced a given result — the two are not equally strong and
+   the difference is provenance. */
+
+async function requestAnalysis(site, regKeys){
+  if(!site.crawl || !site.crawl.raw || !site.crawl.raw.pages) return null;
+  const pages = site.crawl.raw.pages
+    .filter(p => p.text && p.text.length > 100)
+    .map(p => ({url: p.url, title: p.title, text: p.text}));
+  if(!pages.length) return null;
+
+  /* Only requirements that have a crawl rule: the rule is what says this
+     is checkable from a public page at all, and it carries the cap. */
+  const reqs = [];
+  regKeys.forEach(regKey=>{
+    regDefs(regKey).scanned.forEach(r=>{
+      if(!CRAWL_RULES[r.id]) return;
+      reqs.push({
+        id: r.id, code: r.code, text: r.text, layman: r.layman,
+        guidePartial: r.guide && r.guide.partial,
+        guideFail: r.guide && r.guide.fail,
+      });
+    });
+  });
+  if(!reqs.length) return null;
+
+  const res = await fetch(crawlBackendUrl() + '/api/analyze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({requirements: reqs, pages, strictness: strictnessSetting()}),
+  });
+  return await res.json();
+}
+
+/* Absence is only ever a claim about the pages we actually read, so the
+   list travels with the rationale and is shown with it. "Not in these four
+   pages" is checkable; "the company doesn't do this" is the v0.9.0
+   failure. */
+function pagesSearchedNote(f){
+  const n = (f.pagesSearched || []).length;
+  if(!n) return '';
+  return ` Not present in the ${n} page${n===1?'':'s'} retrieved (${f.pagesSearched.join(', ')}) — that is a statement about these pages, not about the company.`;
+}
+
+function analysisToFinding(reqId, f){
+  const rule = CRAWL_RULES[reqId] || {};
+  const cap = rule.cap;
+  /* The cap survives analysis only where it exists for a reason reading
+     can't fix — tracker timing, a form the crawl never reached. Where it
+     existed because keyword matching couldn't read, reading lifts it. */
+  const capApplies = cap && !rule.analystLiftsCap;
+
+  let status = null, determinable = true, confidence = 'Medium';
+  if(f.verdict === 'satisfies'){
+    status = capApplies ? cap : 'Pass';
+    confidence = f.citations.length ? 'High' : 'Medium';
+  } else if(f.verdict === 'falls_short'){
+    status = 'Partial';
+    confidence = f.citations.length ? 'High' : 'Medium';
+  } else if(f.verdict === 'not_addressed'){
+    status = 'Fail';
+    confidence = 'Medium';
+  } else {
+    determinable = false;
+    confidence = 'Low';
+  }
+
+  let rationale = f.reasoning || '';
+  if(f.verdict === 'not_addressed') rationale += pagesSearchedNote(f);
+  if(capApplies && f.verdict === 'satisfies'){
+    rationale += ` Capped at ${cap}: the document says what the requirement asks, but what it claims can’t be confirmed by reading alone.`;
+  }
+  if(f.downgradedFrom){
+    rationale += ` The reviewer initially read this as “${f.downgradedFrom.replace('_',' ')}” but could not point to a passage supporting it, so it is left undetermined rather than recorded.`;
+  }
+
+  return {
+    determinable,
+    status,
+    confidence,
+    rationale,
+    via: 'analyst',
+    evidence: (f.citations || []).map(c=>({
+      quote: c.quote, url: c.page_url, where: c.shows, exact: true, reattributed: !!c.reattributed,
+    })).slice(0, 4),
+    /* The analyst's own statement of what reading can't settle is specific
+       to this requirement; the static rule text is the generic fallback. */
+    limitation: f.beyondTheDocument || rule.limitation || null,
+    droppedCitations: (f.droppedCitations || []).length,
+  };
+}
+
+/* Merge over the phrase-matched baseline. Anything the analyst didn't
+   return a finding for keeps whatever the rules produced, so a partial
+   response degrades to the old behaviour rather than blanking the page. */
+function applyAnalysis(site, analysis){
+  if(!analysis || !analysis.ok || !analysis.findings) return 0;
+  let n = 0;
+  Object.entries(analysis.findings).forEach(([reqId, f])=>{
+    site.crawlFindings[reqId] = analysisToFinding(reqId, f);
+    n++;
+  });
+  site.analysisMeta = {
+    at: Date.now(),
+    model: analysis.model,
+    count: n,
+    missing: analysis.missing || [],
+    strictness: state.strictness,
+  };
+  return n;
+}

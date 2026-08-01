@@ -270,10 +270,16 @@ const BILLS = [
    - needs: 'policy' means the requirement is NOT determinable unless a
      policy page was actually retrieved — a crawl that found no policy
      reports Unassessed, never Fail.
+   - analystLiftsCap: the Partial cap exists because phrase matching can't
+     *read* — a reviewer that actually reads the document can settle it, so
+     the cap is lifted when the analyst produced the finding. Rules whose
+     cap is about something outside the document (whether trackers fire
+     before consent, whether a form behind a login carries a notice) keep
+     it, because no amount of reading answers those.
    - limitation: shown alongside the result when the crawl can only
      partially answer the question. */
 const CRAWL_RULES = {
-  'gdpr-s1': {scope:'policy', needs:'policy', cap:'Partial',
+  'gdpr-s1': {scope:'policy', needs:'policy', cap:'Partial', analystLiftsCap:true,
     strong:['lawful basis','legal basis for processing'],
     weak:['legitimate interest','legitimate interests'],
     limitation:'A crawl can find lawful-basis language, but not whether every processing purpose is mapped to a basis. Confirm and record the real status.'},
@@ -283,7 +289,7 @@ const CRAWL_RULES = {
     trackerScripts:['googletagmanager','google-analytics','facebook.net','doubleclick','hotjar','segment.com','mixpanel'],
     cmpScripts:['onetrust','cookiebot','didomi','usercentrics','cookieyes','trustarc','klaro'],
     limitation:'Fetching a page cannot show whether trackers fire before consent, or whether "Reject All" is as easy as "Accept All" — that needs a real browser session. Treat this as evidence a banner exists, not proof it is compliant.'},
-  'gdpr-s3': {scope:'policy', needs:'policy', cap:'Partial',
+  'gdpr-s3': {scope:'policy', needs:'policy', cap:'Partial', analystLiftsCap:true,
     strong:['privacy policy','privacy notice'],
     weak:['how we use your information','how we use your data'],
     limitation:'The crawl confirms a policy exists and was readable. Whether it covers every processing purpose in plain language is a judgment only you can make.'},

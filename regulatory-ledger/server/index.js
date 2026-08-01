@@ -181,7 +181,41 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  return send(req, res, 404, {ok:false, error:'Not found. Try /api/health, /api/crawl?url=example.com, or POST /api/attest'});
+  /* ---- Policy analysis -------------------------------------------------
+     Reads the pages the crawl retrieved and judges them against the
+     requirements. Judges the document, never the company: every verdict
+     about the text must quote the text, and quotes are checked against the
+     page they claim to come from before they leave the analyst. */
+  if(url.pathname === '/api/analyze'){
+    if(req.method !== 'POST'){
+      return send(req, res, 405, {ok:false, error:'POST a JSON body to /api/analyze.'});
+    }
+    let body;
+    try{ body = await readJsonBody(req); }
+    catch(e){ return send(req, res, 400, {ok:false, error:e.message}); }
+    if(!Array.isArray(body.requirements) || !body.requirements.length){
+      return send(req, res, 400, {ok:false, error:'Missing `requirements`.'});
+    }
+    if(!Array.isArray(body.pages) || !body.pages.length){
+      return send(req, res, 400, {ok:false, error:'Missing `pages` — nothing was retrieved to read.'});
+    }
+    const agent = agentCapability();
+    if(!agent.available){
+      return send(req, res, 200, {ok:false, error:agent.reason, fallback:'phrases'});
+    }
+    try{
+      const { analyze } = require('./agent/analyst.js');
+      const result = await analyze(body);
+      const n = Object.keys(result.findings || {}).length;
+      console.log(`[analyze] ${body.requirements.length} requirement(s) over ${body.pages.length} page(s) -> ${n} finding(s)`);
+      return send(req, res, 200, result);
+    }catch(e){
+      console.warn(`[analyze] failed: ${e.message}`);
+      return send(req, res, 200, {ok:false, error:e.message, fallback:'phrases'});
+    }
+  }
+
+  return send(req, res, 404, {ok:false, error:'Not found. Try /api/health, /api/crawl?url=example.com, POST /api/attest, or POST /api/analyze'});
 });
 
 server.listen(PORT, HOST, () => {

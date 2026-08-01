@@ -443,6 +443,20 @@ function renderFocusPanel(site, scan, regKey){
     </div>`;
 }
 
+/* Which method produced a finding is provenance, and the two are not
+   equally strong: "the phrase appeared somewhere" and "the reviewer read
+   the policy and assessed it against the citation" deserve different
+   labels on the row. */
+function sourceTagFor(site, req, isCodeSite){
+  if(isCodeSite) return `<span class="source-tag code">Source audit</span>`;
+  const f = site.crawlFindings && site.crawlFindings[req.id];
+  if(f && f.via === 'analyst' && f.determinable){
+    return `<span class="source-tag analysed" title="The reviewer read the retrieved pages and assessed them against this requirement">Read &amp; assessed</span>`;
+  }
+  if(isCrawled(site, req.id)) return `<span class="source-tag crawled">Crawled</span>`;
+  return `<span class="source-tag">Publicly observable</span>`;
+}
+
 function renderScannedRow(site, scan, regKey, req){
   const raw = rawStatus(site, scan, regKey, req, 'scanned');
   const eff = itemEffectiveStatus(site, scan, regKey, req, 'scanned');
@@ -461,7 +475,7 @@ function renderScannedRow(site, scan, regKey, req){
     const f = site.crawlFindings[req.id];
     const cls = eff==='Fail' ? 'fail' : eff==='Partial' ? 'partial' : '';
     note = `<div class="req-note ${cls}">${f.rationale}${crawlEvidenceHover(f)}</div>
-      ${f.limitation ? `<div class="crawl-limitation">What a crawl can’t tell you: ${f.limitation}</div>` : ''}
+      ${f.limitation ? `<div class="crawl-limitation">${f.via === 'analyst' ? 'What reading the document can’t establish' : 'What a crawl can’t tell you'}: ${escapeHtml(f.limitation)}</div>` : ''}
       ${(eff==='Fail'||eff==='Partial') ? renderPrecedentInline(req) : ''}`;
   } else if(eff==='Unassessed'){
     /* Criteria to judge against — deliberately phrased as "counts as"
@@ -480,7 +494,7 @@ function renderScannedRow(site, scan, regKey, req){
   return `
     <div class="ledger-row">
       <div>
-        <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button><span class="source-tag ${isCodeSite?'code':(isCrawled(site, req.id)?'crawled':'')}">${isCodeSite?'Source audit':(isCrawled(site, req.id)?'Crawled':'Publicly observable')}</span>${citeHover(req)} ${req.text}</div>
+        <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button>${sourceTagFor(site, req, isCodeSite)}${citeHover(req)} ${req.text}</div>
         ${!collapsed ? `
           <div class="layman-text">${req.layman}</div>
           ${note}
@@ -521,6 +535,22 @@ function renderPrecedentInline(item){
   `;
 }
 
+/* An outstanding requirement — failing, partial, or never looked at — all
+   want the same thing from you: go and check it, then record what you
+   found. Calling that "Override this result" on a Partial framed it as
+   disputing the tool, which is the wrong invitation and made Partial feel
+   like a different workflow from Fail. It isn't. Only a Pass is something
+   you'd be arguing with. */
+function isOutstanding(status){ return status !== 'Pass'; }
+function assessLabel(status){
+  return isOutstanding(status) ? 'Record your assessment' : 'Override this result';
+}
+function assessPrompt(status){
+  return isOutstanding(status)
+    ? 'What did you check, and what did you find? (required)'
+    : 'Why is the system’s read wrong? (required)';
+}
+
 function renderOverrideControl(site, itemId, rawCurrentStatus){
   const key = site.id+'::'+itemId;
   const ov = site.overrides[itemId];
@@ -541,7 +571,7 @@ function renderOverrideControl(site, itemId, rawCurrentStatus){
       <div><select data-override-status-for="${itemId}">
         ${['Pass','Partial','Fail','NA'].map(s=>`<option value="${s}" ${draft.status===s?'selected':''}>${s}</option>`).join('')}
       </select></div>
-      <textarea class="checklist-textarea" data-override-explain-for="${itemId}" placeholder="${rawCurrentStatus==='Unassessed' ? 'What did you check, and what did you find? (required)' : "Why is the system's read wrong? (required)"}">${draft.explanation}</textarea>
+      <textarea class="checklist-textarea" data-override-explain-for="${itemId}" placeholder="${assessPrompt(rawCurrentStatus)}">${draft.explanation}</textarea>
       ${draft.error ? `<div class="err">Please add a brief explanation before saving.</div>` : ''}
       <div style="margin-top:9px;">
         <button class="submit-btn" data-override-submit-for="${itemId}">Save override</button>
@@ -549,7 +579,7 @@ function renderOverrideControl(site, itemId, rawCurrentStatus){
       </div>
     </div>`;
   } else {
-    html += `<button class="link-btn" data-override-open-for="${itemId}">${rawCurrentStatus==='Unassessed' ? 'Record assessment' : 'Override this result'}</button>`;
+    html += `<button class="link-btn" data-override-open-for="${itemId}">${assessLabel(rawCurrentStatus)}</button>`;
   }
   if(historyCount >= 2 && !ov){
     html += `<div class="learn-flag">⚠ Overridden ${historyCount} times across scans in this session — detection logic for this requirement may need recalibrating.</div>`;

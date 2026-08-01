@@ -269,6 +269,91 @@ const check = (label, cond, detail) => {
   check('audit log marks which files were actually inspected',
     attAudit.marksNotInspected && attAudit.marksRead, JSON.stringify(attAudit));
 
+  /* --- Partial gets the same record-assessment flow as Fail ------------ */
+  const flows = await page.evaluate(() => {
+    const site = state.sites.find(s => s.id === state.selectedSiteId);
+    state.focus = null; state.activeReg = 'GDPR';
+    site.crawlFindings = site.crawlFindings || {};
+    // one of each status, straight from the rule engine
+    site.crawlFindings['gdpr-s1'] = {determinable:true, status:'Partial', rationale:'partial', evidence:[]};
+    site.crawlFindings['gdpr-s3'] = {determinable:true, status:'Fail', rationale:'fail', evidence:[]};
+    site.crawlFindings['gdpr-s4'] = {determinable:true, status:'Pass', rationale:'pass', evidence:[]};
+    state.collapsedItems['gdpr-s1'] = false;
+    state.collapsedItems['gdpr-s3'] = false;
+    state.collapsedItems['gdpr-s4'] = false;
+    state.passingOpen['GDPR'] = true;
+    render();
+    const labelFor = id => {
+      const b = document.querySelector(`[data-override-open-for="${id}"]`);
+      return b ? b.textContent.trim() : null;
+    };
+    return {partial: labelFor('gdpr-s1'), fail: labelFor('gdpr-s3'), pass: labelFor('gdpr-s4')};
+  });
+  check('Partial offers the record-assessment flow', /Record your assessment/.test(flows.partial || ''), flows.partial);
+  check('Fail offers the same flow', /Record your assessment/.test(flows.fail || ''), flows.fail);
+  check('Partial and Fail are now identical', flows.partial === flows.fail);
+  check('only a Pass is framed as an override', /Override/.test(flows.pass || ''), flows.pass);
+
+  const prompts = await page.evaluate(() => {
+    state.overrideOpen[state.selectedSiteId + '::gdpr-s1'] = true;
+    state.overrideOpen[state.selectedSiteId + '::gdpr-s3'] = true;
+    render();
+    const ph = id => {
+      const t = document.querySelector(`[data-override-explain-for="${id}"]`);
+      return t ? t.getAttribute('placeholder') : null;
+    };
+    return {partial: ph('gdpr-s1'), fail: ph('gdpr-s3')};
+  });
+  check('Partial asks what you checked, not why the tool is wrong',
+    /What did you check/.test(prompts.partial || ''), prompts.partial);
+  check('Fail asks the same thing', prompts.partial === prompts.fail);
+
+  /* --- Analyst findings render with their own provenance --------------- */
+  const analysed = await page.evaluate(() => {
+    const site = state.sites.find(s => s.id === state.selectedSiteId);
+    Object.keys(state.overrideOpen).forEach(k => delete state.overrideOpen[k]);
+    site.crawlFindings['gdpr-s3'] = {
+      determinable: true, status: 'Pass', confidence: 'High', via: 'analyst',
+      rationale: 'The policy maps each described purpose to a stated basis.',
+      evidence: [{quote: 'we rely on your consent for marketing', url: 'https://x.example/privacy', where: 'consent basis', exact: true}],
+      limitation: 'Whether the described practice is actually followed cannot be seen from a public page.',
+    };
+    render();
+    const row = [...document.querySelectorAll('.ledger-row')]
+      .find(r => /Privacy notice|privacy/i.test(r.textContent));
+    const body = document.body.innerHTML;
+    return {
+      hasAnalysedTag: !!document.querySelector('.source-tag.analysed'),
+      limitationWording: (document.querySelector('.crawl-limitation') || {}).textContent || '',
+      body,
+    };
+  });
+  check('an analyst finding is labelled "Read & assessed"', analysed.hasAnalysedTag);
+  check('the limitation line no longer claims only you can judge it',
+    /What reading the document can’t establish/.test(analysed.limitationWording),
+    analysed.limitationWording.slice(0, 80));
+
+  /* The cap rule: lifted where it existed because matching couldn't read,
+     kept where the answer lives outside the document. */
+  const caps = await page.evaluate(() => {
+    const mk = (verdict) => ({verdict, citations:[{page_url:'u', quote:'q', shows:'s'}], reasoning:'r', beyondTheDocument:'', pagesSearched:['u']});
+    return {
+      liftable: analysisToFinding('gdpr-s3', mk('satisfies')).status,   // analystLiftsCap
+      runtime:  analysisToFinding('gdpr-s2', mk('satisfies')).status,   // tracker timing
+      short:    analysisToFinding('gdpr-s1', mk('falls_short')).status,
+      absent:   analysisToFinding('gdpr-s1', mk('not_addressed')).status,
+      absentWording: analysisToFinding('gdpr-s1', mk('not_addressed')).rationale,
+    };
+  });
+  check('reading lifts a cap that existed because matching could not read',
+    caps.liftable === 'Pass', caps.liftable);
+  check('a cap about runtime behaviour survives reading', caps.runtime === 'Partial', caps.runtime);
+  check('falls_short maps to Partial', caps.short === 'Partial', caps.short);
+  check('absence maps to Fail', caps.absent === 'Fail', caps.absent);
+  check('absence is scoped to the pages searched, not the company',
+    /statement about these pages, not about the company/.test(caps.absentWording),
+    caps.absentWording.slice(-90));
+
   // Settings dropdown: discovery mode
   await page.click('.settings-gear-btn');
   await page.waitForTimeout(300);
