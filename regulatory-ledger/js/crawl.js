@@ -195,9 +195,21 @@ function applyCrawlRules(crawlResult){
    touching the network. */
 function recomputeCrawlFindings(){
   state.sites.forEach(site=>{
-    if(site.crawl && site.crawl.raw){
-      site.crawlFindings = applyCrawlRules(site.crawl.raw);
-    }
+    if(!site.crawl || !site.crawl.raw) return;
+    const previous = site.crawlFindings || {};
+    const rebuilt = applyCrawlRules(site.crawl.raw);
+
+    /* Phrase findings are cheap to redo at the new strictness. Analyst
+       findings are not — re-reading every page would be a network call and
+       a bill nobody asked for — and silently replacing a read assessment
+       with a keyword match would quietly weaken a result the user has no
+       reason to think changed. Keep them, flag them, offer the re-crawl. */
+    Object.entries(previous).forEach(([id, f])=>{
+      if(f && f.via === 'analyst'){
+        rebuilt[id] = {...f, strictnessStale: true};
+      }
+    });
+    site.crawlFindings = rebuilt;
   });
 }
 

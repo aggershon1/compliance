@@ -97,7 +97,7 @@ function renderMain(site){
         <button class="export-btn" id="btn-export">↓ Export PDF report</button>
         <button class="ff-btn" id="btn-fastforward" title="Demo only: ages all self-attested items by 100 days">⏩ Simulate 100 days (demo)</button>
         ${state.crawlBackend && state.crawlBackend.available && site.kind!=='code'
-          ? `<button class="rescan-btn" id="btn-crawl" ${state.crawling?'disabled':''}>${state.crawling ? '⟳ Crawling…' : (site.crawl ? '⟳ Re-crawl site' : '⟳ Crawl site')}</button>`
+          ? `<button class="rescan-btn" id="btn-crawl" ${state.crawling?'disabled':''}>${state.analyzing ? '⟳ Reading the pages…' : state.crawling ? '⟳ Crawling…' : (site.crawl ? '⟳ Re-crawl site' : '⟳ Crawl site')}</button>`
           : ''}
         <button class="export-btn" id="btn-export-audit">↓ Export audit log</button>
       </div>
@@ -283,7 +283,14 @@ function renderComplianceTab(site, scan){
       : disc.fellBackFrom
         ? `Pages were chosen by matching link patterns, after agent discovery failed (${escapeHtml(disc.reason || 'unknown reason')}).`
         : `Pages were chosen by matching link patterns against known privacy/legal wording.`;
-    bannerBody = `<b>Crawled ${new Date(site.crawl.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</b> — ${n} page${n===1?'':'s'} retrieved from ${site.domain}. ${how} Results tagged <span class="source-tag crawled">Crawled</span> come from text actually fetched from those pages, quoted with its source URL. A crawl can confirm what a page <i>says</i>; it cannot confirm the underlying practice works. Anything it couldn't determine stays <b>Unassessed</b> rather than being failed.`;
+    /* Whether the pages were actually read, or only pattern-matched, is
+       the difference between a finding and a keyword hit — it belongs in
+       the headline, not in a note underneath. */
+    const readCount = Object.values(site.crawlFindings || {}).filter(f => f && f.via === 'analyst').length;
+    const readNote = readCount
+      ? ` <b>${readCount} requirement${readCount===1?' was':'s were'} assessed by reading the retrieved text</b>${site.analysisMeta && site.analysisMeta.model ? ` (${site.analysisMeta.model})` : ''}.`
+      : ` <b>The pages were not read</b> — findings come from matching expected wording only, which is why some say the judgment is yours.`;
+    bannerBody = `<b>Crawled ${new Date(site.crawl.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</b> — ${n} page${n===1?'':'s'} retrieved from ${site.domain}. ${how}${readNote} Results tagged <span class="source-tag crawled">Crawled</span> come from text actually fetched from those pages, quoted with its source URL. A crawl can confirm what a page <i>says</i>; it cannot confirm the underlying practice works. Anything it couldn't determine stays <b>Unassessed</b> rather than being failed.`;
     if(site.crawl.notes && site.crawl.notes.length) bannerBody += `<div class="crawl-notes">${site.crawl.notes.map(x=>'• '+x).join('<br>')}</div>`;
   } else if(svc.available){
     bannerBody = `<b>Nothing has been checked automatically yet.</b> The crawl service is running — use <b>Crawl site</b> above to fetch ${site.domain}'s public pages and record what they actually say. Requirements nobody has assessed show as <b>Unassessed</b> and earn no credit.`;
@@ -476,6 +483,7 @@ function renderScannedRow(site, scan, regKey, req){
     const cls = eff==='Fail' ? 'fail' : eff==='Partial' ? 'partial' : '';
     note = `<div class="req-note ${cls}">${f.rationale}${crawlEvidenceHover(f)}</div>
       ${f.limitation ? `<div class="crawl-limitation">${f.via === 'analyst' ? 'What reading the document can’t establish' : 'What a crawl can’t tell you'}: ${escapeHtml(f.limitation)}</div>` : ''}
+      ${f.strictnessStale ? `<div class="crawl-limitation">This was assessed at a different strictness setting. Re-crawl to have the pages read again at the current one.</div>` : ''}
       ${(eff==='Fail'||eff==='Partial') ? renderPrecedentInline(req) : ''}`;
   } else if(eff==='Unassessed'){
     /* Criteria to judge against — deliberately phrased as "counts as"
