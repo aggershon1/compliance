@@ -34,18 +34,41 @@ const PERSIST_FIELDS = [
 
 let persistTimer = null;
 
+/* Attached file bytes are data URIs and dominate the payload — a single
+   PDF is larger than everything else in this app put together, and
+   localStorage gives us a few megabytes total. So there are two passes:
+   normally we keep small files (a screenshot fits, and losing it between
+   sessions would be annoying) and drop the bytes of large ones; under
+   quota pressure we drop every file's bytes.
+
+   What never gets dropped is the attachment's *record* — name, type, size.
+   The audit log still shows that a 40 MB walkthrough video was attached to
+   this requirement on this date, which is the part that matters for
+   provenance. The UI marks a file whose contents are gone as needing
+   re-attachment rather than pretending it can still be read. */
+function stripAttachmentData(drafts, keepUnder){
+  const out = {};
+  Object.entries(drafts || {}).forEach(([k,d])=>{
+    const copy = {...d, screenshot: null};
+    if(Array.isArray(d.attachments)){
+      copy.attachments = d.attachments.map(a=>{
+        if(!a.dataUrl) return a;
+        if(keepUnder && (a.size || 0) <= keepUnder) return a;
+        const {dataUrl, ...rest} = a;
+        return {...rest, dataDropped: true};
+      });
+    }
+    out[k] = copy;
+  });
+  return out;
+}
+
 function persistSnapshot(includeScreenshots){
   const data = {};
   PERSIST_FIELDS.forEach(k=>{ data[k] = state[k]; });
-  if(!includeScreenshots){
-    // Screenshots are data URIs and dominate the payload. Dropping them is
-    // the first thing we try when we blow the quota — the typed description
-    // is the part that took real effort to write.
-    data.drafts = {};
-    Object.entries(state.drafts).forEach(([k,d])=>{
-      data.drafts[k] = {...d, screenshot: null};
-    });
-  }
+  data.drafts = includeScreenshots
+    ? stripAttachmentData(state.drafts, ATT_PERSIST_MAX)
+    : stripAttachmentData(state.drafts, 0);
   return JSON.stringify({version: PERSIST_VERSION, savedAt: Date.now(), data});
 }
 
@@ -58,7 +81,7 @@ function persistWrite(){
     // Quota exceeded (or storage disabled). Retry without screenshots.
     try{
       localStorage.setItem(PERSIST_KEY, persistSnapshot(false));
-      state.storageWarning = 'Saved, but attached screenshots were too large to store — descriptions and overrides were kept. Export your data if you need the screenshots preserved.';
+      state.storageWarning = 'Saved, but attached files were too large for this browser’s storage — their names stay in the record, the contents don’t survive a reload. Descriptions, overrides and attestations were all kept. Use “Export data” to keep the files.';
       return true;
     }catch(e2){
       state.storageWarning = 'Could not save to this browser’s storage — your manual work will be lost on reload. Use “Export data” to keep a copy.';

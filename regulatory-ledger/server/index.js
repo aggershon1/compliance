@@ -26,7 +26,9 @@ const { crawl } = require('./crawler');
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1';
-const MAX_BODY = 1_000_000;
+/* Attachments are base64 in the JSON body — a 20 MB PDF inflates to ~27 MB.
+   Generous, but this binds to loopback and holds no data. */
+const MAX_BODY = 40_000_000;
 
 /* Lazily resolve the model-backed half. Kept in one place so a missing
    install or missing key reads the same everywhere. */

@@ -43,6 +43,7 @@
    ============================================================ */
 
 const { DEFAULT_MODEL, getClient, thinkingFor } = require('./client.js');
+const { prepare, manifestText, verifyEvidence } = require('./evidence.js');
 
 const MAX_FOLLOWUPS = 3;
 
@@ -110,6 +111,32 @@ const RECORD_TOOL = {
           required: ['quote', 'establishes'],
         },
       },
+      evidence_review: {
+        type: 'array',
+        description:
+          'One entry per attached file YOU WERE ABLE TO SEE. Never include a file listed as ' +
+          'unavailable to you — you have not seen it and any entry naming it will be discarded. ' +
+          'Omit or leave empty if no files were attached.',
+        items: {
+          type: 'object',
+          properties: {
+            attachment: { type: 'string', description: 'The filename exactly as given to you.' },
+            observed: {
+              type: 'string',
+              description:
+                'What is visibly present in this file. Describe only what you can actually see — ' +
+                'the controls in a screenshot, the wording in a document. Do not infer what the ' +
+                'product does beyond what the file shows.',
+            },
+            bearing: {
+              type: 'string',
+              enum: ['supports', 'contradicts', 'inconclusive'],
+              description: 'How what you saw bears on the requirement.',
+            },
+          },
+          required: ['attachment', 'observed', 'bearing'],
+        },
+      },
       gaps: {
         type: 'array',
         items: { type: 'string' },
@@ -129,7 +156,21 @@ const RECORD_TOOL = {
   },
 };
 
-function buildSystem(strictness) {
+function buildSystem(strictness, mode) {
+  const observable = mode === 'observable';
+  if (observable) {
+    return `You are reviewing evidence a compliance team has recorded against one requirement that is checkable on their public website.
+
+Someone has recorded a status for this requirement by hand and explained why, and may have attached files as evidence. Your job is to tell them whether what they have recorded holds up against the citation — you are advice, not the verdict. The status they recorded stands regardless of what you say; a person's judgment outranks yours here by design.
+
+Strictness setting: ${strictness.label} — ${strictness.blurb} Apply this to how literally the described implementation must match what the citation requires.
+
+Rules you must follow:
+- Judge only against the legal requirement quoted to you.
+- Never assert a fact about the product beyond what you were told or shown.
+- Every basis quote must be copied verbatim from what the person wrote.
+- Describe an attached file only if it was actually provided to you above.`;
+  }
   return `You are reviewing a self-attestation for a privacy compliance tool.
 
 A product manager is telling you how their product handles one specific legal requirement. Requirements like these live behind a login, so nothing can be observed automatically — their account is the only evidence there is.
@@ -145,21 +186,21 @@ Rules you must follow:
 - Never assert a fact about the product that the user did not tell you. You have no other source.
 - Every basis quote must be copied verbatim from the user's words.
 - If their account does not establish something the requirement needs, that belongs in gaps — not in an assumption that it is probably fine.
-- Ask a follow-up only when the answer would change your verdict. Do not interrogate someone whose answer is already clear.`;
+- Ask a follow-up only when the answer would change your verdict. Do not interrogate someone whose answer is already clear.
+- Attached files: describe a file only if it was actually included above. Some attachments cannot be shown to you — those are named explicitly, and you have not seen them. Do not guess at their contents, and do not let their existence sway the status. A screenshot showing the control the requirement asks for is real corroboration; a file you were told you cannot see is not evidence of anything.`;
 }
 
-function buildUserTurn(item, description, hasScreenshot, turns) {
+function buildUserTurn(item, description, turns, evidence) {
   let s = `REQUIREMENT
 Citation: ${item.code}
 Requirement: ${item.text}
 In plain language: ${item.layman || '(none given)'}
-What a satisfying implementation usually looks like: ${item.guidance || '(none given)'}
+What a satisfying implementation usually looks like: ${item.guidance || item.guide || '(none given)'}
 
-THE PRODUCT MANAGER'S DESCRIPTION
+WHAT THEY WROTE
 """
 ${description || '(nothing written)'}
-"""
-${hasScreenshot ? '\nThey attached a screenshot. You cannot see it. Treat it as mild corroboration of what they described, not as independent evidence.' : ''}`;
+"""`;
 
   if (turns && turns.length) {
     s += '\n\nFOLLOW-UPS SO FAR\n';
@@ -167,7 +208,11 @@ ${hasScreenshot ? '\nThey attached a screenshot. You cannot see it. Treat it as 
       s += `\nQ${i + 1}: ${t.question}\nA${i + 1}: ${t.answer || '(no answer given)'}\n`;
     });
   }
-  return s;
+  s += manifestText(evidence.inspected, evidence.reference);
+
+  /* Files first, then the prose: the trailing text is what the model acts
+     on, and it reads better with the evidence already in hand. */
+  return evidence.blocks.length ? [...evidence.blocks, { type: 'text', text: s }] : s;
 }
 
 /* ---- The provenance gate -----------------------------------------------
@@ -195,18 +240,25 @@ function verifyBasis(basis, userText) {
    Called once per user submission. Returns either a follow-up question or
    a recorded attestation. Past the follow-up budget the ask tool is not
    offered at all, so the interview cannot run forever. */
-async function reviewAttestation({ item, description, hasScreenshot, turns = [], strictness }, opts = {}) {
+async function reviewAttestation({ item, description, turns = [], strictness, attachments = [], mode }, opts = {}) {
   const model = opts.model || DEFAULT_MODEL;
   const client = opts.client || getClient();
-  const canAsk = turns.length < MAX_FOLLOWUPS;
+
+  /* An observable requirement is assessed by a person; this reviewer is
+     advice alongside that, never a replacement, so it does not interview —
+     it reads what was recorded and the evidence, and reports once. */
+  const observable = mode === 'observable';
+  const canAsk = !observable && turns.length < MAX_FOLLOWUPS;
+
+  const evidence = prepare(attachments);
 
   const req = {
     model,
     max_tokens: 2048,
-    system: buildSystem(strictness || { label: 'Balanced', blurb: 'Reasonable paraphrases count.' }),
+    system: buildSystem(strictness || { label: 'Balanced', blurb: 'Reasonable paraphrases count.' }, mode),
     tools: canAsk ? [ASK_TOOL, RECORD_TOOL] : [RECORD_TOOL],
     tool_choice: { type: 'any' },   // it must do one or the other, not reply in prose
-    messages: [{ role: 'user', content: buildUserTurn(item, description, hasScreenshot, turns) }],
+    messages: [{ role: 'user', content: buildUserTurn(item, description, turns, evidence) }],
   };
   const thinking = thinkingFor(model);
   if (thinking) req.thinking = thinking;
@@ -237,22 +289,31 @@ async function reviewAttestation({ item, description, hasScreenshot, turns = [],
 
   const userText = [description, ...turns.map(t => t.answer)].filter(Boolean).join('\n');
   const { kept, dropped } = verifyBasis(call.input.basis, userText);
+  const ev = verifyEvidence(call.input.evidence_review, evidence.inspected);
 
-  /* An attestation whose stated basis cannot be traced to anything the
-     user wrote is not evidence, however well it reads. Say so, and do not
-     let it carry a confident label. */
-  const grounded = kept.length > 0;
+  /* An attestation is grounded when at least one thing it rests on can be
+     traced: a quote the user actually wrote, or a file the reviewer
+     actually saw. A fluent paragraph resting on neither is not evidence,
+     however well it reads, and must not carry a confident label. */
+  const grounded = kept.length > 0 || ev.kept.length > 0;
 
   return {
     ok: true,
     reviewer: 'model',
     model,
+    advisory: observable,
     needsFollowUp: false,
     status: call.input.status,
     confidence: grounded ? call.input.confidence : 'Low',
     rationale: call.input.rationale,
     basis: kept,
     droppedBasis: dropped,
+    evidence: ev.kept,
+    droppedEvidence: ev.dropped,
+    /* Carried back so the UI can show what was read and what was only
+       filed — the user attached both and deserves to know which is which. */
+    inspected: evidence.inspected,
+    reference: evidence.reference,
     gaps: call.input.gaps || [],
     grounded,
     usage,

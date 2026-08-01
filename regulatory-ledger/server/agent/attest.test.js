@@ -112,13 +112,98 @@ function check(label, cond, detail) {
   catch (e) { threw = e.message; }
   check('no decision means nothing is recorded', /no decision/i.test(threw || ''), threw);
 
+  /* --- Attachments: what gets sent, what only gets filed --------------- */
+  const { classify, prepare } = require('./evidence.js');
+  check('image classified as readable', classify({ mime: 'image/png', name: 'flow.png' }) === 'image');
+  check('pdf classified as readable', classify({ mime: 'application/pdf', name: 'dpia.pdf' }) === 'pdf');
+  check('video classified as other', classify({ mime: 'video/mp4', name: 'walkthrough.mp4' }) === 'other');
+  check('figma link classified as link', classify({ url: 'https://figma.com/file/abc', name: 'Design' }) === 'link');
+  check('unknown type defaults to reference-only, not readable',
+    classify({ mime: 'application/x-newthing', name: 'x.new' }) === 'other');
+
+  const prepped = prepare([
+    { id: 'a1', name: 'delete-flow.png', mime: 'image/png', size: 1000, data: 'AAAA' },
+    { id: 'a2', name: 'dpia.pdf', mime: 'application/pdf', size: 2000, data: 'BBBB' },
+    { id: 'a3', name: 'walkthrough.mp4', mime: 'video/mp4', size: 9e6 },
+    { id: 'a4', name: 'Design spec', url: 'https://figma.com/file/abc' },
+    { id: 'a5', name: 'notes.txt', mime: 'text/plain', size: 30, text: 'deletion is in settings' },
+  ]);
+  check('readable files become content blocks',
+    prepped.inspected.map(a => a.name).join(',') === 'delete-flow.png,dpia.pdf,notes.txt',
+    prepped.inspected.map(a => a.name).join(','));
+  check('image block has the documented shape',
+    prepped.blocks[0].type === 'image' && prepped.blocks[0].source.type === 'base64' &&
+    prepped.blocks[0].source.media_type === 'image/png');
+  check('pdf block has the documented shape',
+    prepped.blocks[2].type === 'document' && prepped.blocks[2].source.media_type === 'application/pdf');
+  check('video and figma recorded as reference only',
+    prepped.reference.map(a => a.name).sort().join(',') === 'Design spec,walkthrough.mp4',
+    prepped.reference.map(a => a.name).join(','));
+  check('each unreadable file says why',
+    prepped.reference.every(a => a.reason && a.reason.length > 10),
+    JSON.stringify(prepped.reference.map(a => a.reason)));
+
+  /* The gate: an observation about a file that was never sent must not survive. */
+  script = [() => stub({
+    status: 'Pass', confidence: 'High',
+    basis: [{ quote: 'delete their account', establishes: 'self-serve' }],
+    evidence_review: [
+      { attachment: 'delete-flow.png', observed: 'a Delete account button in settings', bearing: 'supports' },
+      { attachment: 'walkthrough.mp4', observed: 'the video shows deletion completing', bearing: 'supports' },
+      { attachment: 'nonexistent.png', observed: 'invented', bearing: 'supports' },
+    ],
+    gaps: [], rationale: 'ok',
+  }, 'record_attestation')];
+  seen = [];
+  r = await reviewAttestation({
+    item: ITEM, description: 'Users can delete their account.', turns: [],
+    attachments: [
+      { id: 'a1', name: 'delete-flow.png', mime: 'image/png', size: 1000, data: 'AAAA' },
+      { id: 'a3', name: 'walkthrough.mp4', mime: 'video/mp4', size: 9e6 },
+    ],
+  }, { client: fakeClient });
+  check('observation about a seen file kept', r.evidence.length === 1 && /delete-flow/.test(r.evidence[0].attachment));
+  check('observation about the un-sent video DROPPED',
+    r.droppedEvidence.some(d => /walkthrough/.test(d.attachment)));
+  check('invented filename DROPPED', r.droppedEvidence.some(d => /nonexistent/.test(d.attachment)));
+  check('what was read vs only filed is reported back',
+    r.inspected.length === 1 && r.reference.length === 1);
+
+  const sentBody = JSON.stringify(seen[0].messages);
+  check('the model is told which files it cannot see',
+    /walkthrough\.mp4/.test(sentBody) && /NOT available to you/.test(sentBody));
+  check('unreadable file contents are not sent', !/9e6|video\/mp4.*base64/.test(sentBody));
+
+  /* Evidence alone can ground an attestation — the model really did look. */
+  script = [() => stub({
+    status: 'Pass', confidence: 'High', basis: [],
+    evidence_review: [{ attachment: 'flow.png', observed: 'Delete account control', bearing: 'supports' }],
+    gaps: [], rationale: 'The screenshot shows the control.',
+  }, 'record_attestation')];
+  r = await reviewAttestation({
+    item: ITEM, description: '', turns: [],
+    attachments: [{ id: 'z', name: 'flow.png', mime: 'image/png', size: 10, data: 'AA' }],
+  }, { client: fakeClient });
+  check('a file the reviewer actually saw grounds the attestation',
+    r.grounded === true && r.confidence === 'High');
+
+  /* --- Observable mode is advisory and does not interview --------------- */
+  script = [() => stub({
+    status: 'Partial', confidence: 'Medium', basis: [], evidence_review: [], gaps: ['x'], rationale: 'advice',
+  }, 'record_attestation')];
+  seen = [];
+  r = await reviewAttestation({ item: ITEM, description: 'recorded by hand', mode: 'observable', turns: [] }, { client: fakeClient });
+  check('observable mode never asks follow-ups',
+    seen[0].tools.length === 1 && seen[0].tools[0].name === 'record_attestation');
+  check('observable result is flagged advisory', r.advisory === true);
+
   /* --- The screenshot is never sent ------------------------------------ */
   script = [() => stub({ status: 'Partial', confidence: 'Low', basis: [], gaps: [], rationale: 'x' }, 'record_attestation')];
   seen = [];
-  await reviewAttestation({ item: ITEM, description: 'Users can delete their account.', hasScreenshot: true, turns: [] }, { client: fakeClient });
+  await reviewAttestation({ item: ITEM, description: 'Users can delete their account.', turns: [] }, { client: fakeClient });
   const sent = JSON.stringify(seen[0].messages);
-  check('screenshot presence mentioned but no image sent',
-    /screenshot/i.test(sent) && !/data:image/.test(sent));
+  check('no attachments means no evidence section at all',
+    !/ATTACHED EVIDENCE/.test(sent) && !/data:image/.test(sent));
 
   console.log(failures ? `\n${failures} FAILURE(S)` : '\nall checks passed');
   process.exitCode = failures ? 1 : 0;

@@ -35,6 +35,9 @@ const state = {
      for no observed gain. It stays one click away for sites where the
      crawl comes back thin. */
   discoveryMode: 'links',        // how the crawl picks pages: auto | agent | links
+  activeReg: null,               // one regulation on screen at a time
+  passingOpen: {},               // regKey -> is the "Passing" drawer expanded
+  focus: null,                   // {reg, i} — work through open items one at a time
   reviewing: {},                 // itemId -> true while an attestation review is in flight
 };
 
@@ -114,6 +117,23 @@ function reevaluateAttestations(){
       st.rationale = result.rationale;
     });
   });
+}
+
+/* Move to the next outstanding requirement in focus mode. The queue is
+   recomputed rather than remembered: the item just answered has usually
+   left the list, so holding an index into a stale array would skip the
+   one after it. Staying put is therefore "advance" in most cases. */
+function advanceFocus(site, manual){
+  if(!state.focus) return;
+  const scan = site.scans[site.scans.length-1];
+  const before = state.focus.i;
+  const remaining = openRows(allRequirementRows(site, scan, state.focus.reg)).length;
+  if(remaining === 0) return;                 // the panel shows its done state
+  if(manual){
+    state.focus.i = (before + 1) % remaining;  // Skip wraps, so nothing is stranded
+  } else {
+    state.focus.i = Math.min(before, remaining - 1);
+  }
 }
 
 /* ============================================================
@@ -345,6 +365,67 @@ function attachHandlers(site){
     });
   });
 
+  /* ---- Region selector, passing drawer, focus mode ------------------- */
+  document.querySelectorAll('[data-select-reg]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      state.activeReg = el.getAttribute('data-select-reg');
+      state.focus = null;      // a different regulation is a different queue
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-toggle-passing]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const reg = el.getAttribute('data-toggle-passing');
+      state.passingOpen[reg] = !state.passingOpen[reg];
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-focus-start]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      state.focus = {reg: el.getAttribute('data-focus-start'), i: 0};
+      render();
+    });
+  });
+  const focusPrev = document.querySelector('[data-focus-prev]');
+  if(focusPrev) focusPrev.addEventListener('click', ()=>{
+    if(state.focus && state.focus.i > 0) state.focus.i--;
+    render();
+  });
+  const focusNext = document.querySelector('[data-focus-next]');
+  if(focusNext) focusNext.addEventListener('click', ()=>{ advanceFocus(site, true); render(); });
+  document.querySelectorAll('[data-focus-exit]').forEach(el=>{
+    el.addEventListener('click', ()=>{ state.focus = null; render(); });
+  });
+
+  /* ---- Evidence attachments ------------------------------------------ */
+  document.querySelectorAll('[data-att-add]').forEach(el=>{
+    el.addEventListener('change', async (e)=>{
+      const itemId = el.getAttribute('data-att-add');
+      const files = [...(e.target.files || [])];
+      if(!files.length) return;
+      for(const f of files) await attAddFile(site, itemId, f);
+      render();
+    });
+  });
+  document.querySelectorAll('[data-att-link]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const itemId = el.getAttribute('data-att-link');
+      const url = prompt('Paste the link (Figma, Google Doc, Notion, a recording…).\n\nLinks are filed as a reference for a human reviewer — they are not opened or read.');
+      if(!url || !url.trim()) return;
+      const label = prompt('Label for this link (optional):', url.trim());
+      attAddLink(site, itemId, url.trim(), (label||'').trim() || url.trim());
+      render();
+    });
+  });
+  document.querySelectorAll('[data-att-remove]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      attRemove(site, el.getAttribute('data-att-item'), el.getAttribute('data-att-remove'));
+      render();
+    });
+  });
+
   document.querySelectorAll('[data-collapse-toggle]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const id = el.getAttribute('data-collapse-toggle');
@@ -419,7 +500,7 @@ function attachHandlers(site){
       site.checklistState[itemId] = {...prev, checked:true, turns};
       render();
 
-      const result = await reviewAttested(item, draft.description, !!draft.screenshot, turns);
+      const result = await reviewAttested(item, draft.description, {site, turns});
       delete state.reviewing[itemId];
 
       if(result.needsFollowUp && !declining){
@@ -436,6 +517,7 @@ function attachHandlers(site){
           checked:true, finalized:true, needsFollowUp:false, turns,
           status: result.status, confidence: result.confidence, rationale: result.rationale,
           basis: result.basis || [], gaps: result.gaps || [],
+          evidence: result.evidence || [], reference: result.reference || [],
           grounded: !!result.grounded,
           reviewer: result.reviewer,
           fallbackReason: result.fallbackReason || null,
@@ -444,6 +526,10 @@ function attachHandlers(site){
         };
       }
       draft.followUpAnswer = '';
+      /* Focus mode's whole promise is answer → save → next. Advance only
+         once the item is actually finalized; a follow-up question means
+         we're still on this one. */
+      if(state.focus && site.checklistState[itemId].finalized) advanceFocus(site);
       render();
     });
   });
@@ -480,7 +566,7 @@ function attachHandlers(site){
     });
   });
   document.querySelectorAll('[data-override-submit-for]').forEach(el=>{
-    el.addEventListener('click', ()=>{
+    el.addEventListener('click', async ()=>{
       const itemId = el.getAttribute('data-override-submit-for');
       const key = site.id+'::'+itemId;
       const draft = state.overrideDrafts[key];
@@ -501,11 +587,35 @@ function attachHandlers(site){
       else { regKey='CCPA'; source='attested'; reqObj=CCPA_CHECKLIST.find(r=>r.id===itemId); }
       const previousStatus = rawStatus(site, scan, regKey, reqObj, source);
 
-      site.overrides[itemId] = { status: draft.status, explanation: draft.explanation.trim(), previousStatus, timestamp: Date.now() };
+      const explanation = draft.explanation.trim();
+      site.overrides[itemId] = { status: draft.status, explanation, previousStatus, timestamp: Date.now() };
       if(!state.overrideHistory[itemId]) state.overrideHistory[itemId] = [];
-      state.overrideHistory[itemId].push({domain: site.domain, explanation: draft.explanation.trim(), timestamp: Date.now()});
+      state.overrideHistory[itemId].push({domain: site.domain, explanation, timestamp: Date.now()});
       delete state.overrideOpen[key];
       delete state.overrideDrafts[key];
+
+      /* The status you recorded is the status — a person's judgment
+         outranks the reviewer on an observable requirement, by design. But
+         if evidence was attached, it's worth reading it back to you against
+         the citation. Advisory only: it never changes what you recorded. */
+      if(!site.evidenceReviews) site.evidenceReviews = {};
+      if(attCounts(site, itemId).total > 0 && attestBackendReady()){
+        state.reviewing[itemId] = true;
+        render();
+        const review = await reviewAttested(reqObj, explanation, {site, mode:'observable'});
+        delete state.reviewing[itemId];
+        site.evidenceReviews[itemId] = {
+          advisory: true,
+          rationale: review.rationale || '',
+          evidence: review.evidence || [],
+          reference: review.reference || [],
+          gaps: review.gaps || [],
+          reviewer: review.reviewer,
+          at: Date.now(),
+        };
+      }
+
+      if(state.focus) advanceFocus(site);
       render();
     });
   });
@@ -534,6 +644,7 @@ function createEntry(domain){
     manualCompetitors: [],
     scans: [{timestamp: Date.now(), scanned:{GDPR:{}, CCPA:{}}, trust:null, source:'manual'}],
     checklistState: {},
+    evidenceReviews: {},   // advisory reviewer readings of evidence on observable items
     overrides: {},
   });
   state.selectedSiteId = id;

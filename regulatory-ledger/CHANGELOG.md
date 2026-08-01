@@ -2,6 +2,33 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.2.0] — One regulation at a time, a queue to work through, and evidence
+
+The compliance page had become the thing you scroll past. Two full requirement sets stacked on one screen, passing items interleaved with open ones, and no way to work through what was left except by hunting.
+
+### Added
+- **One regulation on screen at a time.** The grade stamps are the selector — click GDPR or CCPA to switch. The inactive one dims rather than disappearing, so the other score stays visible.
+- **Open work first, passing collapsed at the bottom.** Everything not yet passing is grouped under "Needs attention", worst status first; everything passing goes into a drawer that starts closed. The dual-track split (observable vs. behind-login) still governs scoring and the audit log, but it is now a label on each row rather than a page division — when you are clearing outstanding items, "is this done" matters more than "which track".
+- **Focus mode.** "Work through them one at a time" gives you a single requirement, the queue position, and Previous / Skip / Close. Saving an override or submitting an attestation advances automatically. The item renders through exactly the same component as the list, so there is no second code path.
+- **Evidence attachments on every requirement**, observable and self-attested alike. Multiple files, plus links.
+- **The reviewer reads what it can.** Screenshots, PDFs and text files are sent as real content blocks and assessed against the citation; what it saw is shown separately from what it concluded, per file, with whether it supports or contradicts the requirement.
+- On an observable requirement the review is **advisory** — a person's recorded status stands, because a human verdict outranks the reviewer there by design.
+
+### The honest part
+Video, Figma files, Google Docs, Office documents and links **cannot be read**, and the app says so before you upload rather than after. They are recorded — name, type, size, date, carried into the audit log for a human to open — and explicitly excluded from the reviewer's findings.
+
+This matters more than it sounds. Accepting a Loom walkthrough and reporting a "review" of it would be inventing evidence about a real compliance posture — the v0.9.0 failure with better manners. So the same gate the other two agents use applies here: the reviewer is told exactly which files it was given and which it was not, and any observation naming a file outside that manifest is dropped before it reaches the UI.
+
+Attachments also now ground an attestation on their own: a screenshot the reviewer actually examined is real evidence, so it counts even when the written description is thin.
+
+### Changed
+- localStorage keeps small files (a screenshot fits) and drops the bytes of large ones, shedding all of them under quota pressure. What never gets dropped is the *record* — the audit log still shows a 40 MB video was filed against this requirement on this date, which is the part that matters for provenance. Files whose contents are gone are marked as needing re-attachment rather than silently appearing readable.
+- The sidebar disclaimer still said the tool "does not scan or inspect any website" — untrue since v1.0.0. Corrected.
+- Per-section "Collapse all / Expand all" is gone; the passing drawer and focus mode replace what it was for.
+
+### Verified
+44 browser checks covering the region selector, the grouping, focus-mode navigation, the attachment split and the audit-log record, plus 26 new server checks on the evidence pipeline and its gate.
+
 ## [1.1.2] — The agent measured: parity, so link patterns is the default
 
 The navigator shipped in v1.1.0 unmeasured, with a note not to quote a number for it. Here is the number.
