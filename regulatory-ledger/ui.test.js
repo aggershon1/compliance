@@ -354,6 +354,42 @@ const check = (label, cond, detail) => {
     /statement about these pages, not about the company/.test(caps.absentWording),
     caps.absentWording.slice(-90));
 
+  /* --- Never fall back silently -------------------------------------- */
+  const banners = await page.evaluate(() => {
+    const site = state.sites.find(s => s.id === state.selectedSiteId);
+    site.crawl = {raw: {pages: [{role:'homepage', url:'https://x.example/', text:'x'}], discovery:{method:'links'}, notes:[]}, at: Date.now(), notes: []};
+    site.crawlFindings = {'gdpr-s1': {determinable:true, status:'Partial', rationale:'phrase match', evidence:[]}};
+    render();
+    const matched = (document.querySelector('.honesty-banner') || {}).textContent || '';
+
+    site.crawlFindings['gdpr-s1'] = {determinable:true, status:'Pass', via:'analyst', rationale:'read it', evidence:[], limitation:'x'};
+    site.analysisMeta = {model: 'claude-opus-5'};
+    render();
+    const read = (document.querySelector('.honesty-banner') || {}).textContent || '';
+    return {matched, read};
+  });
+  check('banner says plainly when the pages were NOT read',
+    /pages were not read/i.test(banners.matched), banners.matched.slice(-140));
+  check('banner explains why some findings defer to you',
+    /judgment is yours/i.test(banners.matched));
+  check('banner reports how many were assessed by reading',
+    /assessed by reading the retrieved text/i.test(banners.read), banners.read.slice(-140));
+  check('banner names the model that read them', /claude-opus-5/.test(banners.read));
+
+  /* --- Strictness must not silently discard a read assessment ---------- */
+  const survived = await page.evaluate(() => {
+    const site = state.sites.find(s => s.id === state.selectedSiteId);
+    site.crawlFindings['gdpr-s1'] = {determinable:true, status:'Pass', via:'analyst', rationale:'read it', evidence:[], limitation:'x'};
+    site.crawlFindings['gdpr-s4'] = {determinable:true, status:'Pass', rationale:'phrase', evidence:[]};
+    state.strictness = 5;
+    recomputeCrawlFindings();
+    const f = site.crawlFindings['gdpr-s1'];
+    return {via: f && f.via, stale: f && f.strictnessStale, phraseRedone: site.crawlFindings['gdpr-s4'].via};
+  });
+  check('changing strictness keeps the analyst finding', survived.via === 'analyst', String(survived.via));
+  check('the kept finding is flagged as assessed at a different strictness', survived.stale === true);
+  check('phrase findings are still recomputed', survived.phraseRedone === undefined);
+
   // Settings dropdown: discovery mode
   await page.click('.settings-gear-btn');
   await page.waitForTimeout(300);

@@ -2,6 +2,19 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.3.1] — Say when the pages weren't read
+
+A re-crawl still showed "whether it covers every processing purpose in plain language is a judgment only you can make" — the v1.2.0 text, from the phrase rules, on a build that has the analyst. The analyst hadn't run, and nothing said so.
+
+### Fixed
+- **The fallback is never silent again.** If the reviewer can't be reached, the crawl now records why and the banner leads with **"The pages were not read — findings come from matching expected wording only, which is why some say the judgment is yours."** Previously the whole analysis step was skipped with no trace, so a weaker result was indistinguishable from the stronger one. That is the failure mode this project is otherwise careful about, reintroduced in a new place.
+- **The service is re-checked before each crawl.** Health was probed once at page load, so a service started — or given an API key — after the app was open looked unavailable forever. This was the likeliest reason the analyst didn't run: the endpoint is new, and an already-running `node server/index.js` doesn't have it until restarted.
+- **Changing strictness no longer discards a read assessment.** `recomputeCrawlFindings()` rebuilt every finding from the phrase rules, silently overwriting anything the analyst had produced. Analyst findings are now kept and flagged as assessed at a different strictness, with the re-crawl offered — re-reading every page is a network call and a bill nobody asked for, and quietly swapping a read assessment for a keyword match is worse than showing it's out of date.
+
+### Added
+- The banner reports how many requirements were assessed by reading, and names the model that read them.
+- The crawl button reads "Reading the pages…" during analysis, which is the slow half of the run.
+
 ## [1.3.0] — The crawl reads what it retrieved
 
 Two things, one small and one that changes what this tool is for.

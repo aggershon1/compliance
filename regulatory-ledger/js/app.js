@@ -671,7 +671,22 @@ async function runCrawl(site){
          available it then reads the same pages properly and supersedes what
          it could judge — a keyword hit and a read assessment are not the
          same evidence, so which one produced a finding is recorded on it. */
-      if(attestBackendReady()){
+      /* Health is checked once at boot, so a service started (or given a
+         key) after the page loaded would look unavailable forever. Re-ask
+         before deciding we can't read the pages. */
+      if(!attestBackendReady()) await checkCrawlBackend();
+
+      if(!attestBackendReady()){
+        /* Never skip silently. Falling back to wording matches without
+           saying so is how a weaker result gets mistaken for the same
+           result — the exact thing this app is careful about elsewhere. */
+        const svc = state.crawlBackend || {};
+        const why = !svc.available
+          ? `the crawl service at ${crawlBackendUrl()} isn’t reachable`
+          : ((svc.agent && svc.agent.reason) || 'the reviewer isn’t configured');
+        site.crawl.notes = [...site.crawl.notes,
+          `The pages were retrieved but not read — ${why}. Findings below come from matching expected wording only, which is why some say the judgment is yours.`];
+      } else {
         state.analyzing = true;
         render();
         try{
