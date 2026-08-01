@@ -269,6 +269,29 @@ function pagesSearchedNote(f){
   return ` Not present in the ${n} page${n===1?'':'s'} retrieved (${f.pagesSearched.join(', ')}) — that is a statement about these pages, not about the company.`;
 }
 
+/* What reading the document can't establish, once it has actually been
+   read. Two different cases, and conflating them caused a real bug:
+
+   - Where the cap survives analysis, the static rule text *is* the reason
+     for the cap (trackers may fire before consent; the notice belongs on a
+     form the crawl never reached). That has to be stated whether or not
+     the reviewer thought to mention it, so it is kept and the reviewer's
+     own note appended.
+   - Where reading genuinely settles the requirement, the reviewer returns
+     nothing — and falling back to the rule text there printed
+     "whether it covers every processing purpose in plain language is a
+     judgment only you can make" *underneath a verdict the reviewer had
+     just reached by reading it*. The rule text is the phrase-matching
+     fallback; once the document has been read it does not apply. */
+function analystLimitation(f, rule, capApplies){
+  if(capApplies){
+    const base = rule.limitation || null;
+    if(!f.beyondTheDocument) return base;
+    return base ? `${base} ${f.beyondTheDocument}` : f.beyondTheDocument;
+  }
+  return f.beyondTheDocument || null;
+}
+
 function analysisToFinding(reqId, f){
   const rule = CRAWL_RULES[reqId] || {};
   const cap = rule.cap;
@@ -310,9 +333,7 @@ function analysisToFinding(reqId, f){
     evidence: (f.citations || []).map(c=>({
       quote: c.quote, url: c.page_url, where: c.shows, exact: true, reattributed: !!c.reattributed,
     })).slice(0, 4),
-    /* The analyst's own statement of what reading can't settle is specific
-       to this requirement; the static rule text is the generic fallback. */
-    limitation: f.beyondTheDocument || rule.limitation || null,
+    limitation: analystLimitation(f, rule, capApplies),
     droppedCitations: (f.droppedCitations || []).length,
   };
 }
