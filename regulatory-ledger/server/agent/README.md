@@ -80,8 +80,15 @@ npm test              # all three suites, no API key, no network
 node loop.test.js     # navigator: loop, budget, same-origin, provenance gate, crawl adapter
 node attest.test.js   # interviewer: quote gate, follow-up budget, ungrounded handling
 node service.test.js  # HTTP surface + every degradation path
-cd ../.. && node ui.test.js   # the browser: review round trip, rendering, escaping
+
+cd ../..
+node ui.test.js       # the browser: review round trip, rendering, escaping
+node e2e.test.js      # the whole thing: real service + real page + real Crawl click
 ```
+
+`e2e.test.js` earns its place. Every other suite passed while the analyst's
+findings rendered wrongly in the browser — each tested a piece, none tested
+the seam where they meet. It reproduced that bug on its first run.
 
 The model is a scripted stub in all of them, so they test our code rather than the model's judgment. What the model actually decides is what `eval.js` measures, and that needs a key.
 

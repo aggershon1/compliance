@@ -2,6 +2,20 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.3.2] — The stale limitation line, actually fixed
+
+v1.3.1 guessed at why "whether it covers every processing purpose in plain language is a judgment only you can make" survived a re-crawl. It guessed wrong. This finds it.
+
+### Added
+- **An end-to-end test** (`e2e.test.js`). It starts the real fixture site and the real crawl service as child processes, opens the real page, clicks the real Crawl button, and checks what a person would actually see. Only the model is faked, so it needs no API key and no network.
+
+  Every existing suite passed while the feature was broken in the browser. That is the whole reason this file exists: the analyst's gate was tested with a stub, the render functions with injected state, the HTTP surface with curl-shaped calls — and nothing tested the seam where they meet. It reproduced the bug on the first run.
+
+### Fixed
+- **The limitation line fell back to the phrase-rule text even after the reviewer had read the document.** When reading genuinely settles a requirement, the reviewer returns an empty "beyond the document" note — and the code treated empty as *missing* and substituted the static text, which says the opposite of what had just happened. So a requirement could come back read, assessed, and Pass, while still printing "a judgment only you can make" underneath.
+
+  The two cases are now distinguished. Where the cap survives analysis, the static text **is** the reason for the cap — trackers may fire before consent; the notice belongs on a form the crawl never reached — so it is kept regardless of what the reviewer thought to mention, with the reviewer's own note appended. Where reading settles it, there is no limitation to show.
+
 ## [1.3.1] — Say when the pages weren't read
 
 A re-crawl still showed "whether it covers every processing purpose in plain language is a judgment only you can make" — the v1.2.0 text, from the phrase rules, on a build that has the analyst. The analyst hadn't run, and nothing said so.
