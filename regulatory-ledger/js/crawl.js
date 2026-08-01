@@ -229,18 +229,30 @@ function recomputeCrawlFindings(){
    which one produced a given result — the two are not equally strong and
    the difference is provenance. */
 
+/* Every exit from here reports a reason. It used to return bare `null` in
+   three places, and the caller checked `analysis.ok` then `analysis.error`
+   — so null fell through both and the crawl finished with no analysis and
+   no explanation, leaving the phrase-matched text on screen looking like
+   the reviewer had read the page and said that. Third time this shape of
+   bug has bitten; "returns nothing" is never an acceptable outcome here. */
 async function requestAnalysis(site, regKeys){
-  if(!site.crawl || !site.crawl.raw || !site.crawl.raw.pages) return null;
+  if(!site.crawl || !site.crawl.raw || !Array.isArray(site.crawl.raw.pages)){
+    return {ok:false, error:'there was no stored crawl to read.'};
+  }
   const pages = site.crawl.raw.pages
     .filter(p => p.text && p.text.length > 100)
     .map(p => ({url: p.url, title: p.title, text: p.text}));
-  if(!pages.length) return null;
+  if(!pages.length){
+    return {ok:false, error:`none of the ${site.crawl.raw.pages.length} retrieved page(s) had enough readable text to assess — the site may render its content with JavaScript, which this crawler cannot run.`};
+  }
 
   /* Only requirements that have a crawl rule: the rule is what says this
      is checkable from a public page at all, and it carries the cap. */
   const reqs = [];
-  regKeys.forEach(regKey=>{
-    regDefs(regKey).scanned.forEach(r=>{
+  (regKeys || []).forEach(regKey=>{
+    const defs = regDefs(regKey);
+    if(!defs || !defs.scanned) return;
+    defs.scanned.forEach(r=>{
       if(!CRAWL_RULES[r.id]) return;
       reqs.push({
         id: r.id, code: r.code, text: r.text, layman: r.layman,
@@ -249,14 +261,23 @@ async function requestAnalysis(site, regKeys){
       });
     });
   });
-  if(!reqs.length) return null;
+  if(!reqs.length){
+    return {ok:false, error:`no regulation is in scope for this entry (${(regKeys||[]).join(', ') || 'none selected'}), so there was nothing to assess the pages against. Turn on GDPR or CCPA/CPRA above.`};
+  }
 
-  const res = await fetch(crawlBackendUrl() + '/api/analyze', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({requirements: reqs, pages, strictness: strictnessSetting()}),
-  });
-  return await res.json();
+  try{
+    const res = await fetch(crawlBackendUrl() + '/api/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({requirements: reqs, pages, strictness: strictnessSetting()}),
+    });
+    if(!res.ok){
+      return {ok:false, error:`the crawl service answered ${res.status} for /api/analyze — if it was started before this feature existed, restart it.`};
+    }
+    return await res.json();
+  }catch(e){
+    return {ok:false, error:`the request to /api/analyze failed (${e.message}).`};
+  }
 }
 
 /* Absence is only ever a claim about the pages we actually read, so the

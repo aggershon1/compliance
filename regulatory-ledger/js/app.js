@@ -696,9 +696,17 @@ async function runCrawl(site){
           if(eff.CCPA) regKeys.push('CCPA');
           const analysis = await requestAnalysis(site, regKeys);
           if(analysis && analysis.ok){
-            applyAnalysis(site, analysis);
-          } else if(analysis && analysis.error){
-            site.crawl.notes = [...site.crawl.notes, `The pages were retrieved but not read: ${analysis.error} Findings below come from wording matches only.`];
+            const n = applyAnalysis(site, analysis);
+            if(!n){
+              site.crawl.notes = [...site.crawl.notes,
+                'The reviewer read the pages but returned no findings. Everything below comes from wording matches only.'];
+            }
+          } else {
+            /* Any non-ok outcome, including one with no error text, has to
+               say something. Silence here is what made a stale phrase-rule
+               line look like a considered verdict. */
+            const why = (analysis && analysis.error) || 'the reviewer returned nothing.';
+            site.crawl.notes = [...site.crawl.notes, `The pages were retrieved but not read: ${why} Findings below come from wording matches only.`];
           }
         }catch(e){
           site.crawl.notes = [...site.crawl.notes, `The pages were retrieved but not read (${e.message}). Findings below come from wording matches only.`];
