@@ -2,6 +2,21 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.3.3] — Analysis was bound to the moment you crawled
+
+Reported: a requirement still showing "whether it covers every processing purpose in plain language is a judgment only you can make", on a merged build, with the service reporting `agents: enabled`.
+
+The rationale next to it — *"Found the expected wording in the retrieved pages. Capped at Partial because presence is checkable but sufficiency is not"* — is written by the phrase matcher. The analyst never produces that sentence. So the analyst hadn't judged that requirement, and the server log confirmed it: a `[crawl]` line and no `[analyze]` line.
+
+### Fixed
+- **Analysis was scoped to the regulations selected at crawl time.** It ran once, against `effectiveRegs(site)` as it stood at that instant. Turn GDPR on afterwards and its requirements were never read — they kept phrase-matched findings permanently, on a build where the reviewer would have judged them.
+
+  Every requirement that has a crawl rule is now assessed, regardless of what's currently in scope. The cost is negligible: it is one call either way, the pages dominate the tokens, and going from ~6 requirements to ~12 barely moves it. What's *scored* is still governed by scope — that was always a separate question from what gets *read*, and conflating them was the bug.
+
+### Added
+- **"Read the retrieved pages"** — re-runs the assessment against the crawl you already have, with no new requests to the site. You shouldn't have to re-fetch a real site because the reviewer wasn't reachable the first time, or because you changed the regulations afterwards.
+- The end-to-end test now crawls with **only GDPR** in scope and asserts a CCPA requirement was read anyway, so this can't silently return.
+
 ## [1.3.2] — The stale limitation line, actually fixed
 
 v1.3.1 guessed at why "whether it covers every processing purpose in plain language is a judgment only you can make" survived a re-crawl. It guessed wrong. This finds it.
