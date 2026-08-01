@@ -24,6 +24,28 @@ Node 18+ required (it uses built-in `fetch`). **The core has no dependencies and
 | `AGENT_MODEL` | `claude-opus-5` | Model for both agents |
 | `ALLOW_PRIVATE_HOSTS` | unset | **Test only.** Disables the private-address guard so the test suite can crawl a local fixture. Never set this on a shared machine. |
 
+### Budgets
+
+Every limit is a judgement call about someone else's site rather than a law of nature, so all are overridable. Raise them deliberately — each extra page is another request to a real server.
+
+| Variable | Default | What it caps |
+|---|---|---|
+| `CRAWL_MAX_PAGES` | `10` | Total pages fetched per crawl, link-pattern mode |
+| `CRAWL_PAGES_PER_LEVEL` | `4` | Pages picked per discovery level — **usually the one that actually binds** |
+| `CRAWL_TIMEOUT_MS` | `12000` | Per-request timeout |
+| `CRAWL_MAX_BYTES` | `2000000` | Per-page body cap |
+| `AGENT_MAX_PAGES` | `12` | Pages the navigator agent may open |
+| `AGENT_MAX_TURNS` | `16` | Navigator model round-trips |
+| `ANALYST_TOTAL_CHARS` | `90000` | **How much retrieved text the reviewer actually reads** |
+| `ANALYST_PAGE_CHARS` | `24000` | Per-page share of that budget |
+
+**Raise `ANALYST_TOTAL_CHARS` alongside the page counts.** They are independent: fetching thirty pages while the reviewer still reads ninety thousand characters means the extra pages are retrieved and then truncated away before anyone looks at them — a crawl that appears thorough and isn't. The app reports which pages were cut and by how much rather than letting a partial read pass for a complete one.
+
+Two cheaper moves before raising anything:
+
+- **Start from a specific page.** Entering `example.com/privacy` crawls that document directly and skips discovery entirely.
+- **Try the navigator agent** (Settings → Page discovery). It opens up to 12 pages and chooses them by reading, rather than spending the per-level budget on whatever matched first.
+
 ## The optional agents
 
 Two capabilities need a model, and a static file can't hold an API key — the second reason this service exists. They live in [`agent/`](./agent/README.md), which has its own `package.json`, and are `require`d lazily inside their handlers so the core stays dependency-free:

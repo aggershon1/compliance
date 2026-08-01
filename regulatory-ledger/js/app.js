@@ -670,8 +670,18 @@ async function runAnalysis(site){
     if(analysis && analysis.ok){
       const n = applyAnalysis(site, analysis);
       site.crawl.notes = n
-        ? site.crawl.notes.filter(x => !/were retrieved but not read|but returned no findings/.test(x))
+        ? site.crawl.notes.filter(x => !/were retrieved but not read|but returned no findings|was not read in full|were not read in full/.test(x))
         : [...site.crawl.notes, 'The reviewer read the pages but returned no findings. Everything below comes from wording matches only.'];
+
+      /* Fetching more pages than the reviewer can read makes a crawl look
+         thorough while it isn't. Say which pages were cut short and by how
+         much, rather than letting a partial read pass for a complete one. */
+      const cut = analysis.truncated || [];
+      if(cut.length){
+        const worst = cut.map(t => `${t.url} (${t.kept ? `${Math.round(100*t.kept/t.total)}% read` : 'not read at all'})`).join('; ');
+        site.crawl.notes = [...site.crawl.notes,
+          `${cut.length} page(s) exceeded the reviewer's reading budget and ${cut.length===1?'was':'were'} not read in full: ${worst}. Raise ANALYST_TOTAL_CHARS on the crawl service to read more.`];
+      }
     } else {
       /* Any non-ok outcome, including one with no error text, has to say
          something. Silence here is what made a stale phrase-rule line look

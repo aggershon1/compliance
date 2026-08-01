@@ -14,11 +14,25 @@
 const dns = require('node:dns').promises;
 const net = require('node:net');
 
-const FETCH_TIMEOUT_MS = 12000;
-const MAX_BYTES = 2_000_000;
-const MAX_REDIRECTS = 5;
-const MAX_POLICY_PAGES = 4;      // per discovery level
-const MAX_TOTAL_PAGES = 10;      // hard ceiling across the whole crawl
+/* Budgets. The defaults keep this a targeted retriever rather than a
+   spider, but every one of them is a judgement call about someone else's
+   site rather than a law of nature, so all are overridable.
+
+   Raise them deliberately: each extra page is another request to a real
+   server, and the analyst has its own reading budget (ANALYST_TOTAL_CHARS)
+   which does NOT move with these. Fetching thirty pages and reading ten of
+   them is worse than fetching ten, because the crawl looks thorough and
+   isn't. The service reports when that happens. */
+function envInt(name, fallback){
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) && v > 0 ? v : fallback;
+}
+
+const FETCH_TIMEOUT_MS = envInt('CRAWL_TIMEOUT_MS', 12000);
+const MAX_BYTES = envInt('CRAWL_MAX_BYTES', 2_000_000);
+const MAX_REDIRECTS = envInt('CRAWL_MAX_REDIRECTS', 5);
+const MAX_POLICY_PAGES = envInt('CRAWL_PAGES_PER_LEVEL', 4);   // per discovery level
+const MAX_TOTAL_PAGES = envInt('CRAWL_MAX_PAGES', 10);         // hard ceiling across the whole crawl
 const USER_AGENT = 'RegulatoryLedger/1.0 (compliance self-audit; +https://github.com/aggershon1/compliance)';
 
 /* ---- SSRF protection --------------------------------------------------

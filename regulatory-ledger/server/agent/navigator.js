@@ -52,8 +52,12 @@ const {
 
 /* Budgets. An agent that picks its own next step needs a hard stop that
    does not depend on it choosing to finish. */
-const MAX_TOOL_CALLS = 12;   // pages the agent may open
-const MAX_TURNS = 16;        // model round-trips
+function envInt(name, fallback){
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) && v > 0 ? v : fallback;
+}
+const MAX_TOOL_CALLS = envInt('AGENT_MAX_PAGES', 12);   // pages the agent may open
+const MAX_TURNS = envInt('AGENT_MAX_TURNS', 16);        // model round-trips
 const TEXT_EXCERPT = 2000;   // chars of page text shown to the model per fetch
 const MAX_LINKS_SHOWN = 120;
 

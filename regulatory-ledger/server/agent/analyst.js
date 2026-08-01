@@ -49,8 +49,16 @@
 
 const { DEFAULT_MODEL, getClient, thinkingFor } = require('./client.js');
 
-const MAX_PAGE_CHARS = 24_000;
-const MAX_TOTAL_CHARS = 90_000;
+function envInt(name, fallback){
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) && v > 0 ? v : fallback;
+}
+/* How much retrieved text the reviewer actually reads. This is the budget
+   that decides whether crawling more pages achieves anything: raise the
+   page count without raising this and the extra pages are fetched, then
+   truncated away before anyone reads them. What was cut is reported. */
+const MAX_PAGE_CHARS = envInt('ANALYST_PAGE_CHARS', 24_000);
+const MAX_TOTAL_CHARS = envInt('ANALYST_TOTAL_CHARS', 90_000);
 
 const RECORD_TOOL = {
   name: 'record_findings',
@@ -135,12 +143,21 @@ How to judge:
 Never write a sentence asserting what the company actually does in practice. Everything you say is about what its published text says.`;
 }
 
-function buildUserTurn(requirements, pages) {
+function buildUserTurn(requirements, pages, truncated) {
   let s = 'RETRIEVED PAGES\n\nThese are the only pages available to you.\n';
   let budget = MAX_TOTAL_CHARS;
   for (const p of pages) {
-    if (budget <= 0) break;
-    const text = String(p.text || '').slice(0, Math.min(MAX_PAGE_CHARS, budget));
+    const full = String(p.text || '');
+    if (budget <= 0) {
+      /* Silently dropping a page the crawl paid to fetch is how a review
+         looks more thorough than it was. Record it. */
+      if (truncated) truncated.push({url: p.url, kept: 0, total: full.length});
+      continue;
+    }
+    const text = full.slice(0, Math.min(MAX_PAGE_CHARS, budget));
+    if (truncated && text.length < full.length) {
+      truncated.push({url: p.url, kept: text.length, total: full.length});
+    }
     budget -= text.length;
     s += `\n===== PAGE: ${p.url} =====\n${p.title ? `Title: ${p.title}\n` : ''}${text}\n===== END OF ${p.url} =====\n`;
   }
@@ -203,6 +220,7 @@ async function analyze({ requirements, pages, strictness }, opts = {}) {
 
   if (!requirements || !requirements.length) return { ok: true, findings: {}, usage: null };
   const usable = (pages || []).filter(p => p.text && p.text.length > 100);
+  const truncated = [];
   if (!usable.length) {
     return { ok: false, error: 'No retrieved page had enough text to assess.' };
   }
@@ -213,7 +231,7 @@ async function analyze({ requirements, pages, strictness }, opts = {}) {
     system: buildSystem(strictness || { label: 'Balanced', blurb: 'Reasonable paraphrases count.' }),
     tools: [RECORD_TOOL],
     tool_choice: { type: 'tool', name: 'record_findings' },
-    messages: [{ role: 'user', content: buildUserTurn(requirements, usable) }],
+    messages: [{ role: 'user', content: buildUserTurn(requirements, usable, truncated) }],
   };
   const thinking = thinkingFor(model);
   if (thinking) req.thinking = thinking;
@@ -258,6 +276,9 @@ async function analyze({ requirements, pages, strictness }, opts = {}) {
     model,
     findings,
     missing: [...wanted].filter(id => !findings[id]),
+    /* What the reviewer was not shown, so the app can say so rather than
+       let a partial read pass for a complete one. */
+    truncated,
     usage: { input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens },
   };
 }

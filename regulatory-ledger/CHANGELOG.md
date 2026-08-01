@@ -2,6 +2,19 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.3.4] — The budgets are yours to set
+
+Every page and reading limit was a hardcoded constant. They are judgement calls about someone else's site, not laws of nature, so they are now environment variables.
+
+### Added
+- `CRAWL_MAX_PAGES` (10), `CRAWL_PAGES_PER_LEVEL` (4), `CRAWL_TIMEOUT_MS`, `CRAWL_MAX_BYTES` — link-pattern retrieval.
+- `AGENT_MAX_PAGES` (12), `AGENT_MAX_TURNS` (16) — the navigator agent.
+- `ANALYST_TOTAL_CHARS` (90 000), `ANALYST_PAGE_CHARS` (24 000) — **how much retrieved text the reviewer actually reads**.
+- **Truncation is reported.** The page budget and the reading budget are independent, so raising the first without the second fetches pages that are then discarded before anyone reads them — a crawl that looks thorough and isn't. The app now names each page that was cut and by how much, and says which variable to raise.
+
+### Note
+`CRAWL_PAGES_PER_LEVEL` is usually the limit that actually binds. The 10-page ceiling is rarely reached; running out of the four slots per discovery level is what stops a crawl short, and on a site with several legal pages those slots get spent before the interesting documents are reached.
+
 ## [1.3.3] — Analysis was bound to the moment you crawled
 
 Reported: a requirement still showing "whether it covers every processing purpose in plain language is a judgment only you can make", on a merged build, with the service reporting `agents: enabled`.
