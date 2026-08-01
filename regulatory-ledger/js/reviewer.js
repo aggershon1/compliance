@@ -112,7 +112,11 @@ function attestBackendReady(){
 
 /* Returns the same shape either way, so callers never branch on which
    reviewer ran — only the UI does, to label it. */
-async function reviewAttested(item, description, hasScreenshot, turns){
+async function reviewAttested(item, description, opts){
+  const {site, turns, mode} = opts || {};
+  const attachments = site ? attPayload(site, item.id) : [];
+  const hasScreenshot = attachments.some(a => (a.mime || '').startsWith('image/'));
+
   if(!attestBackendReady()){
     const svc = state.crawlBackend || {};
     const why = !svc.available
@@ -125,13 +129,16 @@ async function reviewAttested(item, description, hasScreenshot, turns){
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        /* Only what the reviewer needs to judge against the citation. The
-           screenshot itself is never sent — the model can't see it, and
-           shipping a data URL over the wire for nothing would be waste. */
-        item: {code: item.code, text: item.text, layman: item.layman, guidance: item.guidance},
+        item: {
+          code: item.code, text: item.text, layman: item.layman,
+          guidance: item.guidance || (item.guide && item.guide.partial) || '',
+        },
         description,
-        hasScreenshot: !!hasScreenshot,
         turns: turns || [],
+        mode: mode || 'attested',
+        /* Everything attached goes, readable or not: the reviewer is told
+           what it cannot see precisely so it doesn't speculate about it. */
+        attachments,
         strictness: strictnessSetting(),
       }),
     });

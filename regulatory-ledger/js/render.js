@@ -24,7 +24,7 @@ function render(){
         </div>
         <div class="docket-list">${renderDocketList()}</div>
         <div class="disclaimer-foot">
-          Informational guidance only, not legal advice — consult qualified counsel before making formal compliance decisions. This tool does not scan or inspect any website; every status here is one a person recorded. Enforcement cases cited are real public actions, shown for comparison only.
+          Informational guidance only, not legal advice — consult qualified counsel before making formal compliance decisions. Public pages are crawled when the local service is running; everything behind a login is your own attested account of it. Enforcement cases cited are real public actions, shown for comparison only.
         </div>
       </div>
       <div class="main">${renderMain(site)}</div>
@@ -301,89 +301,197 @@ function renderComplianceTab(site, scan){
     const score = blendedScore(site, scan, regKey);
     const resolved = allRequirementsAssessed(site, regKey);
     const grade = resolved ? gradeLabel(score) : null;
+    const isActive = regKey === currentReg(site);
+    const p = assessmentProgress(site, regKey);
     return `
-      <div class="stamp-wrap">
+      <button type="button" class="stamp-wrap selectable ${isActive?'active':''}" data-select-reg="${regKey}"
+              aria-pressed="${isActive}" title="Show ${regKey} requirements">
         <div class="stamp ${resolved?tierClass(grade):'tier-pending'}"><div class="grade disp">${resolved?grade:'—'}</div><div class="glabel">${regKey}</div></div>
         <div>
           <div class="stamp-num mono">${score}/100${resolved?'':' (provisional)'}</div>
-          <div class="stamp-caption">${resolved ? topGapsCaption(site, scan, regKey) : `Provisional — ${assessmentProgress(site, regKey).total - assessmentProgress(site, regKey).done} requirement(s) still unassessed. A final grade is withheld until every one has a recorded status.`}</div>
+          <div class="stamp-caption">${resolved ? topGapsCaption(site, scan, regKey) : `Provisional — ${p.total - p.done} requirement(s) still unassessed. A final grade is withheld until every one has a recorded status.`}</div>
+          ${regs.length > 1 ? `<div class="stamp-select-hint">${isActive ? 'Showing this one' : 'Click to show'}</div>` : ''}
         </div>
-      </div>
+      </button>
     `;
   }).join('');
 
-  const blocksHtml = regs.map(regKey=>{
-    const {scanned, checklist, label} = regDefs(regKey);
-    const allIds = scanned.map(r=>r.id).concat(checklist.map(i=>i.id)).join(',');
+  /* One regulation at a time. Two full requirement sets stacked on one
+     page was the main reason this screen felt unworkable — you scroll past
+     everything you already handled to reach the thing you were looking
+     for. The stamps double as the selector. */
+  const activeReg = currentReg(site);
 
-    const isCodeSite = site.kind === 'code';
-    const scannedRows = scanned.map(req=>{
-      const raw = rawStatus(site, scan, regKey, req, 'scanned');
-      const eff = itemEffectiveStatus(site, scan, regKey, req, 'scanned');
-      const stClass = eff.toLowerCase();
-      const collapsed = isCollapsed(req.id, eff);
-      let note = '';
-      if(isCodeSite){
-        const verdict = site.codeEvidence[req.id];
-        const evHover = codeEvidenceHover(verdict);
-        if(eff==='Fail') note = `<div class="req-note fail">${verdict.rationale}${evHover}</div>${renderPrecedentInline(req)}`;
-        else if(eff==='Partial') note = `<div class="req-note partial">${verdict.rationale}${evHover}</div>${renderPrecedentInline(req)}`;
-        else if(eff==='Pending') note = `<div class="req-note">${verdict.rationale}</div>`;
-        else note = `<div class="req-note">${verdict.rationale}${evHover}</div>`;
-      } else if(!site.overrides[req.id] && site.crawlFindings && site.crawlFindings[req.id] && site.crawlFindings[req.id].determinable){
-        const f = site.crawlFindings[req.id];
-        const cls = eff==='Fail' ? 'fail' : eff==='Partial' ? 'partial' : '';
-        note = `<div class="req-note ${cls}">${f.rationale}${crawlEvidenceHover(f)}</div>
-          ${f.limitation ? `<div class="crawl-limitation">What a crawl can’t tell you: ${f.limitation}</div>` : ''}
-          ${(eff==='Fail'||eff==='Partial') ? renderPrecedentInline(req) : ''}`;
-      } else if(eff==='Unassessed'){
-        /* Criteria to judge against — deliberately phrased as "counts as"
-           rather than "we found", because nothing has been inspected. */
-        const cf = site.crawlFindings && site.crawlFindings[req.id];
-        const lead = (cf && !cf.determinable)
-          ? cf.rationale
-          : 'Nobody has recorded a status for this yet. Check it against your live site and record what you find.';
-        note = `<div class="req-note unassessed">${lead}
-          <div class="assess-criteria"><b>Counts as Partial:</b> ${req.guide.partial}</div>
-          <div class="assess-criteria"><b>Counts as Fail:</b> ${req.guide.fail}</div></div>`;
-      } else {
-        if(eff==='Fail') note = `<div class="req-note fail">${req.guide.fail}</div>${renderPrecedentInline(req)}`;
-        else if(eff==='Partial') note = `<div class="req-note partial">${req.guide.partial}</div>${renderPrecedentInline(req)}`;
-      }
-      return `
-        <div class="ledger-row">
-          <div>
-            <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button><span class="source-tag ${isCodeSite?'code':(isCrawled(site, req.id)?'crawled':'')}">${isCodeSite?'Source audit':(isCrawled(site, req.id)?'Crawled':'Publicly observable')}</span>${citeHover(req)} ${req.text}</div>
-            ${!collapsed ? `
-              <div class="layman-text">${req.layman}</div>
-              ${note}
-              <div class="override-wrap">${renderOverrideControl(site, req.id, raw)}</div>
-            ` : ''}
-          </div>
-          <div class="status-badge ${stClass}">${eff}</div>
-        </div>
-      `;
-    }).join('');
+  if(state.focus && state.focus.reg === activeReg){
+    return `${banner}<div class="stamp-row">${stampsHtml}</div>${renderFocusPanel(site, scan, activeReg)}`;
+  }
 
-    const checklistRows = checklist.map(item=>renderChecklistItem(site, scan, regKey, item)).join('');
-    const resolved = allRequirementsAssessed(site, regKey);
-
-    return `
-      <div class="reg-block">
-        <h3 class="disp">${regKey}</h3>
-        <div class="reg-sub">${label}
-          <button type="button" class="link-btn" style="margin-left:12px;" data-collapse-all="${allIds}">Collapse all</button>
-          <button type="button" class="link-btn" style="margin-left:8px;" data-expand-all="${allIds}">Expand all</button>
-        </div>
-        <div class="ledger-section-label">${isCodeSite ? 'Source-audited — real evidence from your uploaded code (archived)' : 'Publicly observable — check these on your live site and record what you find'}</div>
-        <div class="ledger">${scannedRows}</div>
-        <div class="ledger-section-label">Behind login — self-attested${resolved ? '' : ' · required before a final grade is given'}</div>
-        <div class="ledger">${checklistRows}</div>
-      </div>
-    `;
-  }).join('');
-
+  const blocksHtml = renderRegBlock(site, scan, activeReg);
   return `${banner}<div class="stamp-row">${stampsHtml}</div>${renderExposureSummary(site, scan)}${renderCountryBreakdown(site, scan)}${blocksHtml}`;
+}
+
+/* The regulation currently on screen, validated against what's actually in
+   scope — a stored choice must not survive the country selection changing
+   underneath it. */
+function currentReg(site){
+  const eff = effectiveRegs(site);
+  const regs = [];
+  if(eff.GDPR) regs.push('GDPR');
+  if(eff.CCPA) regs.push('CCPA');
+  if(state.activeReg && regs.includes(state.activeReg)) return state.activeReg;
+  return regs[0] || null;
+}
+
+/* Every requirement in one list, each carrying which track it came from.
+   The dual-track split still governs scoring and the audit log; here it is
+   a label on the row rather than a page division, because when you are
+   working through open items the question "is this observable or behind
+   login" matters less than "is it done". */
+function allRequirementRows(site, scan, regKey){
+  const {scanned, checklist} = regDefs(regKey);
+  const rows = [
+    ...scanned.map(item => ({item, source:'scanned'})),
+    ...checklist.map(item => ({item, source:'attested'})),
+  ];
+  return rows.map(r => ({
+    ...r,
+    eff: itemEffectiveStatus(site, scan, regKey, r.item, r.source),
+    raw: rawStatus(site, scan, regKey, r.item, r.source),
+  }));
+}
+function openRows(rows){ return rows.filter(r => r.eff !== 'Pass'); }
+function passingRows(rows){ return rows.filter(r => r.eff === 'Pass'); }
+
+/* Order within the open list: worst first, so the thing most worth doing
+   is the thing at the top. */
+const STATUS_ORDER = {Fail:0, Partial:1, Pending:2, Unassessed:3, Pass:4};
+function bySeverity(a, b){ return (STATUS_ORDER[a.eff] ?? 9) - (STATUS_ORDER[b.eff] ?? 9); }
+
+function renderRow(site, scan, regKey, row){
+  return row.source === 'scanned'
+    ? renderScannedRow(site, scan, regKey, row.item)
+    : renderChecklistItem(site, scan, regKey, row.item);
+}
+
+function renderRegBlock(site, scan, regKey){
+  if(!regKey) return '';
+  const {label} = regDefs(regKey);
+  const rows = allRequirementRows(site, scan, regKey);
+  const open = openRows(rows).sort(bySeverity);
+  const passing = passingRows(rows);
+  const resolved = allRequirementsAssessed(site, regKey);
+  const openIds = open.map(r=>r.item.id).join(',');
+  const passOpen = !!state.passingOpen[regKey];
+
+  const openHtml = open.length
+    ? `<div class="ledger">${open.map(r=>renderRow(site, scan, regKey, r)).join('')}</div>`
+    : `<div class="section-note">Nothing outstanding — every requirement in scope is passing.</div>`;
+
+  return `
+    <div class="reg-block">
+      <div class="reg-sub">${label}</div>
+
+      <div class="work-header">
+        <div class="ledger-section-label" style="margin:0;">Needs attention · ${open.length}${resolved ? '' : ' · a final grade is withheld until every requirement has a recorded status'}</div>
+        ${open.length ? `<button type="button" class="submit-btn work-btn" data-focus-start="${regKey}">Work through them one at a time →</button>` : ''}
+      </div>
+      ${openHtml}
+
+      <button type="button" class="passing-drawer ${passOpen?'open':''}" data-toggle-passing="${regKey}">
+        <span>${passOpen?'▾':'▸'} Passing · ${passing.length}</span>
+        <span class="passing-hint">${passOpen?'hide':'these are done — expand only if you need to check one'}</span>
+      </button>
+      ${passOpen && passing.length ? `<div class="ledger">${passing.map(r=>renderRow(site, scan, regKey, r)).join('')}</div>` : ''}
+      ${passOpen && !passing.length ? `<div class="section-note">Nothing is passing yet.</div>` : ''}
+    </div>
+  `;
+}
+
+/* ---- Focus mode --------------------------------------------------------
+   One requirement, full width, with the queue position and a way forward.
+   The item renders exactly as it does in the list — same controls, same
+   reviewer — so there is no second code path to keep in step. Submitting
+   or saving advances automatically; that is the whole point of the mode. */
+function renderFocusPanel(site, scan, regKey){
+  const rows = openRows(allRequirementRows(site, scan, regKey)).sort(bySeverity);
+  const f = state.focus;
+  if(!rows.length){
+    return `<div class="focus-panel"><div class="focus-done">
+      <div class="focus-done-mark disp">Done</div>
+      <p>Every requirement in ${regKey} has a recorded status.</p>
+      <button type="button" class="submit-btn" data-focus-exit>Back to the full list</button>
+    </div></div>`;
+  }
+  const i = Math.min(f.i, rows.length - 1);
+  const row = rows[i];
+
+  return `
+    <div class="focus-panel">
+      <div class="focus-bar">
+        <div class="focus-count mono">${i+1} of ${rows.length} outstanding · ${regKey}</div>
+        <div class="focus-nav">
+          <button type="button" class="link-btn" data-focus-prev ${i===0?'disabled':''}>← Previous</button>
+          <button type="button" class="link-btn" data-focus-next>Skip →</button>
+          <button type="button" class="link-btn" data-focus-exit>Close</button>
+        </div>
+      </div>
+      <div class="focus-progress"><div class="focus-progress-bar" style="width:${Math.round((i/rows.length)*100)}%"></div></div>
+      <div class="focus-item">${renderRow(site, scan, regKey, row)}</div>
+      <div class="focus-foot">
+        Saving or submitting moves you to the next one automatically.
+      </div>
+    </div>`;
+}
+
+function renderScannedRow(site, scan, regKey, req){
+  const raw = rawStatus(site, scan, regKey, req, 'scanned');
+  const eff = itemEffectiveStatus(site, scan, regKey, req, 'scanned');
+  const stClass = eff.toLowerCase();
+  const collapsed = isCollapsed(req.id, eff);
+  const isCodeSite = site.kind === 'code';
+  let note = '';
+  if(isCodeSite){
+    const verdict = site.codeEvidence[req.id];
+    const evHover = codeEvidenceHover(verdict);
+    if(eff==='Fail') note = `<div class="req-note fail">${verdict.rationale}${evHover}</div>${renderPrecedentInline(req)}`;
+    else if(eff==='Partial') note = `<div class="req-note partial">${verdict.rationale}${evHover}</div>${renderPrecedentInline(req)}`;
+    else if(eff==='Pending') note = `<div class="req-note">${verdict.rationale}</div>`;
+    else note = `<div class="req-note">${verdict.rationale}${evHover}</div>`;
+  } else if(!site.overrides[req.id] && site.crawlFindings && site.crawlFindings[req.id] && site.crawlFindings[req.id].determinable){
+    const f = site.crawlFindings[req.id];
+    const cls = eff==='Fail' ? 'fail' : eff==='Partial' ? 'partial' : '';
+    note = `<div class="req-note ${cls}">${f.rationale}${crawlEvidenceHover(f)}</div>
+      ${f.limitation ? `<div class="crawl-limitation">What a crawl can’t tell you: ${f.limitation}</div>` : ''}
+      ${(eff==='Fail'||eff==='Partial') ? renderPrecedentInline(req) : ''}`;
+  } else if(eff==='Unassessed'){
+    /* Criteria to judge against — deliberately phrased as "counts as"
+       rather than "we found", because nothing has been inspected. */
+    const cf = site.crawlFindings && site.crawlFindings[req.id];
+    const lead = (cf && !cf.determinable)
+      ? cf.rationale
+      : 'Nobody has recorded a status for this yet. Check it against your live site and record what you find.';
+    note = `<div class="req-note unassessed">${lead}
+      <div class="assess-criteria"><b>Counts as Partial:</b> ${req.guide.partial}</div>
+      <div class="assess-criteria"><b>Counts as Fail:</b> ${req.guide.fail}</div></div>`;
+  } else {
+    if(eff==='Fail') note = `<div class="req-note fail">${req.guide.fail}</div>${renderPrecedentInline(req)}`;
+    else if(eff==='Partial') note = `<div class="req-note partial">${req.guide.partial}</div>${renderPrecedentInline(req)}`;
+  }
+  return `
+    <div class="ledger-row">
+      <div>
+        <div class="req-text"><button type="button" class="collapse-toggle" data-collapse-toggle="${req.id}" data-currently-collapsed="${collapsed}" aria-label="Toggle details">${collapsed?'▸':'▾'}</button><span class="source-tag ${isCodeSite?'code':(isCrawled(site, req.id)?'crawled':'')}">${isCodeSite?'Source audit':(isCrawled(site, req.id)?'Crawled':'Publicly observable')}</span>${citeHover(req)} ${req.text}</div>
+        ${!collapsed ? `
+          <div class="layman-text">${req.layman}</div>
+          ${note}
+          ${attachmentsHtml(site, req.id, 'observable')}
+          ${evidenceReviewHtml(site.evidenceReviews && site.evidenceReviews[req.id])}
+          <div class="override-wrap">${renderOverrideControl(site, req.id, raw)}</div>
+        ` : ''}
+      </div>
+      <div class="status-badge ${stClass}">${eff}</div>
+    </div>
+  `;
 }
 
 function renderExposureSummary(site, scan){
@@ -449,6 +557,74 @@ function renderOverrideControl(site, itemId, rawCurrentStatus){
   return html;
 }
 
+/* ---- Evidence attachments ----------------------------------------------
+   Two tiers, and the tier is stated before you upload rather than after.
+   Images, PDFs and text files are genuinely sent to the reviewer and read;
+   everything else is filed as a reference for a human. Promising a review
+   of a Figma file the reviewer cannot open would be inventing evidence
+   about a real compliance posture, which is the one thing this tool must
+   not do. */
+function attachmentsHtml(site, itemId, context){
+  const list = attListFor(site, itemId);
+  const counts = attCounts(site, itemId);
+
+  const rows = list.map(a=>{
+    const why = attNotReadable(a);
+    return `
+      <div class="att-row ${why?'reference':'readable'}">
+        <span class="att-icon">${attIcon(a)}</span>
+        <span class="att-name">${a.url ? `<a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.name)}</a>` : escapeHtml(a.name)}</span>
+        <span class="att-size mono">${attSizeLabel(a)}</span>
+        <span class="att-tier ${why?'reference':'readable'}">${why ? 'Filed, not read' : 'Will be read'}</span>
+        <button type="button" class="chip-remove" data-att-remove="${a.id}" data-att-item="${itemId}" aria-label="Remove ${escapeHtml(a.name)}">×</button>
+        ${why ? `<div class="att-why">${escapeHtml(why)}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="att-block">
+      <div class="att-head">
+        Evidence${counts.total ? ` · ${counts.readable} readable, ${counts.reference} filed for reference` : ''}
+      </div>
+      ${rows ? `<div class="att-list">${rows}</div>` : ''}
+      <div class="att-actions">
+        <label class="file-btn">📎 Attach files
+          <input type="file" multiple data-att-add="${itemId}" style="display:none;">
+        </label>
+        <button type="button" class="link-btn" data-att-link="${itemId}">🔗 Add a link</button>
+      </div>
+      <div class="att-legend">
+        Screenshots, PDFs and text files are read by the reviewer and checked against the requirement.
+        Video, Figma, Google Docs and Office files are recorded in the audit log for a person to open — they are never described or treated as evidence.
+      </div>
+    </div>`;
+}
+
+/* What the reviewer actually saw in the files, kept apart from what it
+   concluded — same separation as basis and rationale, for the same
+   reason. Only files that were genuinely sent can appear here; the server
+   drops the rest before this ever renders. */
+function evidenceReviewHtml(review){
+  if(!review) return '';
+  const ev = review.evidence || [];
+  const ref = review.reference || [];
+  if(!ev.length && !ref.length && !review.rationale) return '';
+  const bearing = b => b === 'supports' ? 'supports' : b === 'contradicts' ? 'contradicts' : 'inconclusive';
+  return `
+    <div class="ev-review">
+      <div class="ev-head">Reviewer’s reading of the evidence${review.advisory ? ' · advisory, your recorded status stands' : ''}</div>
+      ${review.rationale ? `<div class="rationale-text">${escapeHtml(review.rationale)}</div>` : ''}
+      ${ev.map(e=>`
+        <div class="ev-row">
+          <span class="ev-bearing ${bearing(e.bearing)}">${bearing(e.bearing)}</span>
+          <span class="ev-file mono">${escapeHtml(e.attachment)}</span>
+          <div class="ev-observed">${escapeHtml(e.observed)}</div>
+        </div>`).join('')}
+      ${ref.length ? `<div class="ev-unread">Not read, and not taken into account: ${ref.map(r=>escapeHtml(r.name)).join(', ')}.</div>` : ''}
+      ${(review.gaps || []).length ? gapsHtml({gaps: review.gaps}) : ''}
+    </div>`;
+}
+
 /* ---- Attestation review UI --------------------------------------------
    The reviewer's output is shown in four separate registers, deliberately
    kept apart: what it concluded (rationale), what in your own words it
@@ -456,15 +632,10 @@ function renderOverrideControl(site, itemId, rawCurrentStatus){
    and the interview that got there. Keeping the basis visible and
    verbatim is what stops a fluent paragraph from reading as evidence. */
 
-function descriptionFieldsHtml(item, draft){
+function descriptionFieldsHtml(item, draft, site){
   return `
     <textarea class="checklist-textarea" data-desc-for="${item.id}" placeholder="Briefly describe how this works today…">${draft.description}</textarea>
-    <div class="checklist-file-row">
-      <label class="file-btn">📎 Attach screenshot (optional)
-        <input type="file" accept="image/*" data-shot-for="${item.id}" style="display:none;">
-      </label>
-      ${draft.screenshot ? `<img class="thumb-preview" src="${draft.screenshot}">` : ''}
-    </div>`;
+    ${attachmentsHtml(site, item.id, 'attested')}`;
 }
 
 function attestReviewerHintHtml(){
@@ -517,6 +688,28 @@ function ungroundedHtml(st){
   return `<div class="ungrounded-warn">⚠ The reviewer couldn’t point to anything in your own words to support this. Nothing here was verified against your description — treat the status as unsupported until you add detail and re-review.</div>`;
 }
 
+/* On a recorded attestation: what the reviewer actually looked at, and
+   what it was handed but could not open. The second half matters — an
+   attestation backed by a Loom video nobody watched should not read as
+   though the video counted. */
+function evidenceSeenHtml(st){
+  const ev = st.evidence || [];
+  const ref = st.reference || [];
+  if(!ev.length && !ref.length) return '';
+  const bearing = b => b === 'supports' ? 'supports' : b === 'contradicts' ? 'contradicts' : 'inconclusive';
+  return `
+    <div class="ev-review">
+      <div class="ev-head">Evidence the reviewer read</div>
+      ${ev.map(e=>`
+        <div class="ev-row">
+          <span class="ev-bearing ${bearing(e.bearing)}">${bearing(e.bearing)}</span>
+          <span class="ev-file mono">${escapeHtml(e.attachment)}</span>
+          <div class="ev-observed">${escapeHtml(e.observed)}</div>
+        </div>`).join('')}
+      ${ref.length ? `<div class="ev-unread">Attached but not read, and not counted: ${ref.map(r=>`${escapeHtml(r.name)} — ${escapeHtml(r.reason)}`).join('; ')}.</div>` : ''}
+    </div>`;
+}
+
 function interviewThreadHtml(st){
   if(!st || !st.turns || !st.turns.length) return '';
   return `
@@ -553,7 +746,7 @@ function renderChecklistItem(site, scan, regKey, item){
     } else if(st.needsFollowUp && !st.finalized){
       bodyHtml = `
         <div class="checklist-body">
-          ${descriptionFieldsHtml(item, draft)}
+          ${descriptionFieldsHtml(item, draft, site)}
           ${interviewThreadHtml(st)}
           <div class="followup-box">
             <div class="followup-q">${escapeHtml(st.followUpQuestion || '')}</div>
@@ -582,6 +775,7 @@ function renderChecklistItem(site, scan, regKey, item){
           </div>
           <div class="rationale-text">${escapeHtml(st.rationale || '')}${evHover}</div>
           ${basisHtml(st)}
+          ${evidenceSeenHtml(st)}
           ${gapsHtml(st)}
           ${ungroundedHtml(st)}
           ${interviewThreadHtml(st)}
@@ -593,7 +787,7 @@ function renderChecklistItem(site, scan, regKey, item){
     } else {
       bodyHtml = `
         <div class="checklist-body">
-          ${descriptionFieldsHtml(item, draft)}
+          ${descriptionFieldsHtml(item, draft, site)}
           <button class="submit-btn" data-submit-for="${item.id}">Submit for review</button>
           ${attestReviewerHintHtml()}
         </div>
@@ -854,10 +1048,31 @@ function auditItemRow(site, scan, regKey, item, source){
         raw !== ov.previousStatus ? ` <b>Basis has since changed — the underlying result is now ${raw}.</b>` : ''}</div>`
     : '';
 
+  /* Attached evidence belongs in the log whether or not anything read it —
+     that a walkthrough video was filed against this requirement on this
+     date is exactly what an auditor asking "on what basis?" needs. Each
+     one is marked with whether it was actually inspected. */
+  const draft = state.drafts[draftKey(site.id, item.id)];
+  const atts = (draft && draft.attachments) || [];
+  const attHtml = atts.length
+    ? `<div class="al-attachments"><i>Evidence attached:</i> ${atts.map(a=>{
+        const why = attNotReadable(a);
+        return `${escapeHtml(a.name)} (${attSizeLabel(a)}, ${why ? 'filed only — not inspected' : 'read by the reviewer'})`;
+      }).join('; ')}</div>`
+    : '';
+
+  const advisory = site.evidenceReviews && site.evidenceReviews[item.id];
+  const advisoryHtml = advisory
+    ? `<div class="al-advisory"><i>Reviewer’s reading of the evidence (advisory — the recorded status stands):</i> ${escapeHtml(advisory.rationale || '')}${
+        (advisory.evidence||[]).map(e=>` · ${escapeHtml(e.attachment)}: ${escapeHtml(e.observed)} [${escapeHtml(e.bearing)}]`).join('')}</div>`
+    : '';
+
   return `
     <div class="pr-item al-item">
       <div><span class="pr-status">${eff}</span> — ${item.code} · ${item.text}</div>
       <div class="pr-meta">${provenance}</div>
+      ${attHtml}
+      ${advisoryHtml}
       ${overrideHtml}
     </div>`;
 }

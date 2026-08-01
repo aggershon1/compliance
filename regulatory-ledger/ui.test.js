@@ -136,6 +136,139 @@ const check = (label, cond, detail) => {
   });
   check('ungrounded attestation warns prominently', ung === true);
 
+  /* --- One region at a time, selected by the grade stamp --------------- */
+  const regInfo = await page.evaluate(() => {
+    const site = state.sites.find(s => s.id === state.selectedSiteId);
+    site.manualRegs.GDPR = true; site.manualRegs.CCPA = true;   // both in scope
+    state.focus = null;
+    render();
+    return {
+      stamps: document.querySelectorAll('[data-select-reg]').length,
+      active: document.querySelectorAll('.stamp-wrap.active').length,
+      blocks: document.querySelectorAll('.reg-block').length,
+      showing: state.activeReg || (document.querySelector('.stamp-wrap.active') || {}).getAttribute?.('data-select-reg'),
+    };
+  });
+  check('both regulations offered as selectable stamps', regInfo.stamps === 2, String(regInfo.stamps));
+  check('exactly one stamp is active', regInfo.active === 1, String(regInfo.active));
+  check('only ONE regulation block rendered at a time', regInfo.blocks === 1, String(regInfo.blocks));
+
+  await page.click('[data-select-reg="CCPA"]');
+  await page.waitForTimeout(250);
+  const switched = await page.evaluate(() => ({
+    active: state.activeReg,
+    blocks: document.querySelectorAll('.reg-block').length,
+  }));
+  check('clicking a stamp switches region', switched.active === 'CCPA' && switched.blocks === 1,
+    JSON.stringify(switched));
+
+  /* --- Open items above, passing collapsed at the bottom --------------- */
+  const grouping = await page.evaluate(() => {
+    const drawer = document.querySelector('[data-toggle-passing]');
+    const openLabel = document.querySelector('.ledger-section-label');
+    const body = document.body.innerHTML;
+    return {
+      hasDrawer: !!drawer,
+      drawerCollapsed: drawer && !drawer.classList.contains('open'),
+      drawerText: drawer ? drawer.textContent.trim().replace(/\s+/g, ' ') : '',
+      needsLabel: openLabel ? openLabel.textContent.trim() : '',
+      // the drawer must come after the open list in document order
+      drawerAfterOpen: body.indexOf('data-toggle-passing') > body.indexOf('Needs attention'),
+    };
+  });
+  check('passing items are in a drawer', grouping.hasDrawer);
+  check('passing drawer starts collapsed', grouping.drawerCollapsed === true);
+  check('passing drawer sits below the open items', grouping.drawerAfterOpen === true);
+  check('open items are headed "Needs attention"', /Needs attention/.test(grouping.needsLabel), grouping.needsLabel);
+
+  await page.click('[data-toggle-passing]');
+  await page.waitForTimeout(200);
+  check('passing drawer expands on click',
+    await page.$eval('[data-toggle-passing]', e => e.classList.contains('open')) === true);
+  await page.click('[data-toggle-passing]');
+  await page.waitForTimeout(150);
+
+  /* --- Focus mode: one at a time -------------------------------------- */
+  await page.click('[data-focus-start]');
+  await page.waitForTimeout(300);
+  const focus = await page.evaluate(() => {
+    const panel = document.querySelector('.focus-panel');
+    return {
+      open: !!panel,
+      count: (document.querySelector('.focus-count') || {}).textContent || '',
+      items: document.querySelectorAll('.focus-item .ledger-row, .focus-item .checklist-item').length,
+      regBlocks: document.querySelectorAll('.reg-block').length,
+    };
+  });
+  check('focus mode opens', focus.open);
+  check('focus mode shows exactly one requirement', focus.items === 1, String(focus.items));
+  check('focus mode shows queue position', /\d+ of \d+ outstanding/.test(focus.count), focus.count);
+  check('focus mode replaces the full list', focus.regBlocks === 0, String(focus.regBlocks));
+
+  const firstItem = await page.$eval('.focus-item', e => e.textContent.slice(0, 60));
+  await page.click('[data-focus-next]');
+  await page.waitForTimeout(250);
+  const secondItem = await page.$eval('.focus-item', e => e.textContent.slice(0, 60));
+  check('Skip advances to a different requirement', firstItem !== secondItem);
+
+  await page.click('[data-focus-exit]');
+  await page.waitForTimeout(250);
+  check('closing focus returns to the list',
+    await page.$('.focus-panel') === null && await page.$('.reg-block') !== null);
+
+  /* --- Attachments: the readable / filed-only split -------------------- */
+  const attItem = await page.evaluate(() => {
+    const el = document.querySelector('[data-att-add]');
+    return el ? el.getAttribute('data-att-add') : null;
+  });
+  check('attachment control present on requirements', !!attItem, String(attItem));
+
+  await page.setInputFiles(`[data-att-add="${attItem}"]`, [
+    { name: 'delete-flow.png', mimeType: 'image/png', buffer: Buffer.from('89504e470d0a1a0a', 'hex') },
+    { name: 'walkthrough.mp4', mimeType: 'video/mp4', buffer: Buffer.from('0000001c66747970', 'hex') },
+  ]);
+  await page.waitForTimeout(500);
+
+  const atts = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('.att-row')];
+    return rows.map(r => ({
+      name: (r.querySelector('.att-name') || {}).textContent || '',
+      tier: (r.querySelector('.att-tier') || {}).textContent || '',
+      why: (r.querySelector('.att-why') || {}).textContent || '',
+    }));
+  });
+  const png = atts.find(a => /delete-flow/.test(a.name));
+  const mp4 = atts.find(a => /walkthrough/.test(a.name));
+  check('both files attached', atts.length === 2, JSON.stringify(atts.map(a => a.name)));
+  check('image marked as readable', png && /Will be read/.test(png.tier), png && png.tier);
+  check('video marked as filed-only', mp4 && /Filed, not read/.test(mp4.tier), mp4 && mp4.tier);
+  check('video says WHY it will not be read', mp4 && /cannot be watched|can’t be watched/.test(mp4.why), mp4 && mp4.why);
+  check('the honest split is stated up front',
+    await page.$eval('.att-legend', e => /never described|not.*evidence/i.test(e.textContent)));
+
+  const payload = await page.evaluate((id) => {
+    const site = state.sites.find(s => s.id === state.selectedSiteId);
+    const p = attPayload(site, id);
+    return p.map(a => ({name: a.name, hasData: !!a.data}));
+  }, attItem);
+  check('readable file bytes are sent, unreadable ones are not',
+    payload.find(a => /delete-flow/.test(a.name)).hasData === true &&
+    payload.find(a => /walkthrough/.test(a.name)).hasData === false,
+    JSON.stringify(payload));
+
+  const attAudit = await page.evaluate(() => {
+    const site = state.sites.find(s => s.id === state.selectedSiteId);
+    const html = buildAuditLogHTML(site);
+    return {
+      hasVideo: /walkthrough\.mp4/.test(html),
+      marksNotInspected: /filed only — not inspected/.test(html),
+      marksRead: /read by the reviewer/.test(html),
+    };
+  });
+  check('audit log records every attachment, inspected or not', attAudit.hasVideo);
+  check('audit log marks which files were actually inspected',
+    attAudit.marksNotInspected && attAudit.marksRead, JSON.stringify(attAudit));
+
   // Settings dropdown: discovery mode
   await page.click('.settings-gear-btn');
   await page.waitForTimeout(300);
