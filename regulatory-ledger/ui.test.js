@@ -49,12 +49,14 @@ const check = (label, cond, detail) => {
   // Add an entry
   await page.click('#btn-add-site');
   await page.waitForTimeout(200);
-  // Country first: selecting one triggers a full re-render, which rebuilds
-  // the (unbound) domain input and would discard anything typed before it.
-  await page.click('[data-newscan-country]');
-  await page.waitForTimeout(200);
+  /* Domain FIRST, then the country — the order that used to lose the
+     typed site, because selecting a country re-renders the form. */
   await page.fill('#new-scan-input', 'example.com');
   await page.waitForTimeout(100);
+  await page.click('[data-newscan-country]');
+  await page.waitForTimeout(250);
+  const kept = await page.$eval('#new-scan-input', e => e.value);
+  check('the typed website survives selecting a region', kept === 'example.com', kept);
   await page.$eval('#new-scan-form', f => f.requestSubmit ? f.requestSubmit() : f.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
   await page.waitForTimeout(500);
   check('entry created', await page.$('.checklist-item') !== null);
@@ -389,6 +391,26 @@ const check = (label, cond, detail) => {
   check('changing strictness keeps the analyst finding', survived.via === 'analyst', String(survived.via));
   check('the kept finding is flagged as assessed at a different strictness', survived.stale === true);
   check('phrase findings are still recomputed', survived.phraseRedone === undefined);
+
+  /* --- The start commands, where the problem is ------------------------ */
+  const startCmd = await page.evaluate(() => {
+    const site = state.sites.find(s => s.id === state.selectedSiteId);
+    state.crawlBackend = {url:'http://127.0.0.1:8787', available:false, agent:{available:false}};
+    site.crawl = null;
+    state.focus = null;
+    render();
+    const block = document.querySelector('.start-cmd-block');
+    return {
+      shown: !!block,
+      text: block ? block.textContent : '',
+      copyable: !!document.querySelector('[data-copy-start]'),
+    };
+  });
+  check('the banner carries the start commands when the service is down', startCmd.shown);
+  check('it includes the install step', /npm install/.test(startCmd.text));
+  check('it includes the run step', /node index\.js/.test(startCmd.text));
+  check('it names the API key as optional', /ANTHROPIC_API_KEY/.test(startCmd.text));
+  check('the commands can be copied', startCmd.copyable);
 
   // Settings dropdown: discovery mode
   await page.click('.settings-gear-btn');

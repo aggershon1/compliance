@@ -174,7 +174,7 @@ function renderNewScanForm(canCancel){
       <form class="scan-form" id="new-scan-form">
         <label>Website</label>
         <div class="scan-form-row">
-          <input type="text" id="new-scan-input" placeholder="e.g. acmehealth.com" autocomplete="off">
+          <input type="text" id="new-scan-input" placeholder="e.g. acmehealth.com" autocomplete="off" value="${escapeHtml(state.newScanInput || '')}">
           <button type="submit" class="go-btn">Add entry</button>
         </div>
         <label>Countries this entry covers</label>
@@ -262,6 +262,32 @@ function renderCountryBreakdown(site, scan){
   return `<div class="country-score-list"><div class="section-note" style="margin-bottom:8px;">Score by country</div>${rowsHtml}${overallHtml}</div>`;
 }
 
+/* Everything needed to get the service up, in one copyable block. The
+   first two lines are only needed once per machine; the rest is what you
+   run each time. Shown wherever the app has to explain that the service
+   isn't there. */
+const START_COMMANDS = [
+  '# once per machine — installs the reviewer\'s dependencies',
+  'cd regulatory-ledger/server/agent && npm install',
+  '',
+  '# each time — from the repository root',
+  'cd regulatory-ledger/server',
+  'export ANTHROPIC_API_KEY=sk-ant-...   # optional: enables reading pages, not just matching',
+  'node index.js',
+].join('\n');
+
+function startCommandHtml(){
+  return `
+    <div class="start-cmd">
+      <div class="start-cmd-head">
+        <span>Start it with</span>
+        <button type="button" class="link-btn" data-copy-start title="Copy these commands">Copy</button>
+      </div>
+      <pre class="start-cmd-block mono">${escapeHtml(START_COMMANDS)}</pre>
+      <div class="start-cmd-note">Leave it running in its own terminal. Without an API key the service still crawls; it just matches wording rather than reading the pages. On macOS you can double-click <code>start-crawl-service.command</code> in the repository instead.</div>
+    </div>`;
+}
+
 function renderComplianceTab(site, scan){
   const eff = effectiveRegs(site);
   const regs = [];
@@ -298,7 +324,11 @@ function renderComplianceTab(site, scan){
   } else if(svc.available){
     bannerBody = `<b>Nothing has been checked automatically yet.</b> The crawl service is running — use <b>Crawl site</b> above to fetch ${site.domain}'s public pages and record what they actually say. Requirements nobody has assessed show as <b>Unassessed</b> and earn no credit.`;
   } else {
-    bannerBody = `<b>Nothing here is automatically detected.</b> The crawl service isn't running, so this tool cannot fetch ${site.domain} — every status below is one you recorded. Start it with <code>node server/index.js</code> to enable crawling. Requirements nobody has assessed show as <b>Unassessed</b> and earn no credit.`;
+    /* The command, in full, where the problem is — rather than a bare
+       "node server/index.js" that leaves you working out the directory,
+       the install and the key for yourself. */
+    bannerBody = `<b>Nothing here is automatically detected.</b> The crawl service isn't running, so this tool cannot fetch ${site.domain} — every status below is one you recorded. Requirements nobody has assessed show as <b>Unassessed</b> and earn no credit.
+      ${startCommandHtml()}`;
   }
   const banner = `<div class="honesty-banner">
       ${bannerBody}

@@ -8,6 +8,7 @@ const state = {
   showNewScanForm: false,
   newScanCountries: [],        // country codes checked in the New Scan form
   newScanManualCountries: [],  // [{name}] added via free-text in the New Scan form
+  newScanInput: '',            // the website being typed — survives the re-render a country toggle causes
   newScanManualInput: '',      // draft text for the manual-add box
   newScanError: false,
   legFilterRegion: 'All',
@@ -144,6 +145,7 @@ function attachHandlers(site){
   const addBtn = document.getElementById('btn-add-site');
   if(addBtn) addBtn.addEventListener('click', ()=>{
     state.showNewScanForm = true;
+    state.newScanInput = '';
     state.newScanCountries = [];
     state.newScanManualCountries = [];
     state.newScanManualInput = '';
@@ -166,6 +168,13 @@ function attachHandlers(site){
       render();
     });
   });
+  /* Selecting a country re-renders the whole form, so an unbound input
+     loses whatever was typed — you entered the site, picked a region, and
+     the site was gone. Mirror it into state on every keystroke, and render
+     it back from there. No render() here: that would reset the caret. */
+  const newScanInput = document.getElementById('new-scan-input');
+  if(newScanInput) newScanInput.addEventListener('input', (e)=>{ state.newScanInput = e.target.value; });
+
   const newScanManualInput = document.getElementById('new-scan-manual-input');
   if(newScanManualInput) newScanManualInput.addEventListener('input', (e)=>{ state.newScanManualInput = e.target.value; });
   const newScanManualAdd = document.getElementById('btn-new-scan-manual-add');
@@ -193,8 +202,11 @@ function attachHandlers(site){
       render();
       return;
     }
-    const val = document.getElementById('new-scan-input').value;
-    if(val && val.trim()) createEntry(cleanDomain(val));
+    const val = (document.getElementById('new-scan-input') || {}).value || state.newScanInput || '';
+    if(val && val.trim()){
+      state.newScanInput = '';
+      createEntry(cleanDomain(val));
+    }
   });
 
   document.querySelectorAll('[data-site-id]').forEach(el=>{
@@ -369,6 +381,27 @@ function attachHandlers(site){
   /* ---- Region selector, passing drawer, focus mode ------------------- */
   const analyzeBtn = document.getElementById('btn-analyze');
   if(analyzeBtn) analyzeBtn.addEventListener('click', ()=>{ runAnalysis(site); });
+
+  const copyStart = document.querySelector('[data-copy-start]');
+  if(copyStart) copyStart.addEventListener('click', async ()=>{
+    try{
+      await navigator.clipboard.writeText(START_COMMANDS);
+      copyStart.textContent = 'Copied';
+      setTimeout(()=>{ copyStart.textContent = 'Copy'; }, 1600);
+    }catch(e){
+      /* Clipboard access is refused on file:// in some browsers. Select the
+         text instead so ⌘C still works — better than a dead button. */
+      const pre = document.querySelector('.start-cmd-block');
+      if(pre){
+        const r = document.createRange();
+        r.selectNodeContents(pre);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(r);
+        copyStart.textContent = 'Selected — press ⌘C';
+      }
+    }
+  });
 
   document.querySelectorAll('[data-select-reg]').forEach(el=>{
     el.addEventListener('click', ()=>{
