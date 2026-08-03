@@ -4,7 +4,14 @@ A workbench for tracking a product's privacy/regulatory compliance posture again
 
 > **Crawling is real, and optional.** Run the local [crawl service](./server/README.md) and the app fetches the site's public pages and checks them against the requirement text, quoting what it actually found with source URLs. Without it, the app still works — you assess each requirement yourself. Nothing is ever invented: what a crawl can't determine stays *Unassessed*. See [What's real](#whats-real-vs-mocked-in-this-prototype).
 
-**[Open the prototype](./regulatory-ledger.html)** — HTML shell + CSS, loading `js/*.js` via plain `<script>` tags, no build step. Open it directly in a browser.
+**[Open the prototype](./regulatory-ledger.html)** — HTML shell + CSS, loading `js/*.js` via plain `<script>` tags, no build step. Open it directly in a browser, or serve the folder:
+
+```bash
+cd regulatory-ledger
+python3 -m http.server 8000     # then http://localhost:8000
+```
+
+(The app file is `regulatory-ledger.html`; an `index.html` redirects to it so the bare URL works.)
 
 ## What it does
 
