@@ -19,11 +19,14 @@ regulatory-ledger/
   server/                  # optional Node crawl service — core is dependency-free
     index.js               # HTTP surface: /api/health, /api/crawl, /api/attest
     crawler.js             # retrieval + the POLICY_HINTS link-pattern discovery
+    legislation.js         # watches official pages, diffs them — no parsing, no interpretation
     agent/                 # the two model-backed agents — own package.json, lazily required
       client.js            #   shared Anthropic client, availability check, thinking config
       navigator.js         #   finds privacy pages by reading the site (replaces POLICY_HINTS)
       attest.js            #   interviews the user about behind-login flows
       analyst.js           #   reads retrieved pages and judges them against the citations
+      proposal.js          #   reviews a spec against the citations before it is built
+      recommend.js         #   contextual advice, written against what was actually found
       evidence.js          #   splits attachments into inspected vs. reference-only
       eval.js              #   scores agent discovery against the link-pattern baseline
       *.test.js            #   offline suites — scripted stub, no key, no network

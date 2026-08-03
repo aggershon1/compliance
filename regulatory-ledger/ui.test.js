@@ -412,6 +412,82 @@ const check = (label, cond, detail) => {
   check('it names the API key as optional', /ANTHROPIC_API_KEY/.test(startCmd.text));
   check('the commands can be copied', startCmd.copyable);
 
+  /* --- The three roadmap features render ------------------------------- */
+  const roadmapUi = await page.evaluate(() => {
+    const site = state.sites.find(s => s.id === state.selectedSiteId);
+    state.focus = null;
+    state.activeTab = 'recommendations';
+    site.crawlFindings = site.crawlFindings || {};
+    site.crawlFindings['gdpr-s1'] = {determinable:true, status:'Fail', rationale:'not found', evidence:[]};
+    site.recommendations = {'gdpr-s1': {
+      headline: 'State a lawful basis per purpose',
+      steps: ['Add a table mapping each purpose to its basis.'],
+      whyThisSatisfies: 'Art. 6 requires a basis per purpose.',
+      evidenceAfterwards: ['A screenshot of the policy section.'],
+      effort: 'small',
+    }};
+    site.proposalReview = {
+      reviewedAt: Date.now(), model: 'claude-opus-5',
+      findings: {'gdpr-s1': {
+        verdict: 'would_fall_short',
+        assessment: 'Covers the topic but not per purpose.',
+        basis: [{quote: 'we will add a lawful basis section', shows: 'a section is planned'}],
+        gaps: ['Art. 6 requires a basis per purpose; the plan states one blanket basis.'],
+        evidenceToAttest: ['The published section showing per-purpose mapping.'],
+      }},
+      outOfScope: 'The migration timeline is described but no requirement covers it.',
+      reference: [],
+    };
+    render();
+    const body = document.body.innerText;
+    return {
+      contextual: !!document.querySelector('.rec-contextual'),
+      effort: !!document.querySelector('.rec-effort.small'),
+      proposalPanel: !!document.querySelector('.prop-panel'),
+      proposalFinding: !!document.querySelector('.prop-finding'),
+      gapsShown: /requires a basis per purpose/.test(body),
+      quotedPlan: /we will add a lawful basis section/.test(body),
+      outOfScope: /migration timeline/.test(body),
+    };
+  });
+  check('contextual recommendations render', roadmapUi.contextual);
+  check('effort is sized on screen', roadmapUi.effort);
+  check('the proposal panel is offered', roadmapUi.proposalPanel);
+  check('a proposal review renders', roadmapUi.proposalFinding);
+  check('gaps are stated against the citation', roadmapUi.gapsShown);
+  check('the plan is quoted back', roadmapUi.quotedPlan);
+  check('what was read but not assessed is shown', roadmapUi.outOfScope);
+
+  const watchUi = await page.evaluate(() => {
+    state.activeTab = 'legislation';
+    state.watches = {ok:true, suggested:[{id:'a', label:'EDPB — news', url:'https://example.org/n', regions:['EU']}], tracked:[]};
+    state.watchResults = {
+      ok:true, checkedAt: Date.now(), changedCount:1, failedCount:1,
+      results:[
+        {id:'a', ok:true, changed:true, label:'EDPB — news', url:'https://example.org/n', regions:['EU'],
+         added:['New guidance on consent'], removed:[], addedCount:1, removedCount:0, since: Date.now()-864e5},
+        {id:'b', ok:false, label:'Moved source', url:'https://example.org/x', error:'The source returned HTTP 404.'},
+      ],
+    };
+    render();
+    const body = document.body.innerText;
+    return {
+      panel: !!document.querySelector('.watch-panel'),
+      change: /New guidance on consent/.test(body),
+      failure: /returned HTTP 404/.test(body),
+      seedLabelled: /Static sample data, not a live feed/.test(body),
+      noInterpretation: !/this bill will/i.test(body),
+    };
+  });
+  check('the legislation watch panel renders', watchUi.panel);
+  check('changed lines are quoted', watchUi.change);
+  check('an unreachable source is shown, not hidden', watchUi.failure);
+  check('the seed bill list is still labelled as seed data', watchUi.seedLabelled);
+  check('the watch does not interpret what it found', watchUi.noInterpretation);
+
+  await page.evaluate(() => { state.activeTab = 'compliance'; render(); });
+  await page.waitForTimeout(150);
+
   // Settings dropdown: discovery mode
   await page.click('.settings-gear-btn');
   await page.waitForTimeout(300);

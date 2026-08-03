@@ -2,6 +2,32 @@
 
 All notable changes to this prototype are logged here.
 
+## [1.4.0] — The three backend roadmap items
+
+All three shipped. What each one deliberately *isn't* mattered as much as what it is.
+
+### Added
+- **Contextual recommendations.** The Recommendations tab showed text hardcoded per requirement — correct, generic, and identical whether you have no privacy policy at all or one missing a single retention period. It now writes against what was actually found, returning ordered steps, why they satisfy the citation, what evidence to capture afterwards, and a rough effort size. The static text remains the fallback without an API key, labelled as generic.
+
+  The honesty problem here is quieter than elsewhere: advice asserts facts. "Add a retention period to your policy" claims your policy lacks one, and if that came from a failed fetch rather than a read it is a fabricated finding in a helpful voice. So the current status travels **with its provenance**, and the adviser is required to write conditionally about anything not actually established.
+
+- **Proposal review.** Paste or attach a spec, PRD or design doc and have it measured against the citations before the work is built. Output separates what the plan says — quoted from the plan, verbatim-checked — from what the citation demands that it misses, plus what evidence would need to exist afterwards to attest it.
+
+  The roadmap's firmest constraint was *"it must never answer 'this isn't how we'd do it'"*. That is enforced by the schema, not the prompt: there is `gaps_against_citation` and **no field for a preferred alternative**. A reviewer wanting to say "I'd have used a preference centre instead" has nowhere to put it. The test asserts that no such field exists, so it can't be quietly added later.
+
+- **Legislation watch.** Watches official pages and reports the lines that changed since the last check, linking through to the source. No API key needed — retrieval and diffing only.
+
+  Deliberately *not* a per-source parser producing structured bill records. That is the version that sounds right and the version this project must not ship unverified: a bill status scraped wrong and rendered confidently is a compliance decision resting on a fiction. Accounts and email delivery are also out — this service binds to loopback and holds no user data, and adding SMTP to it is a different product. Any scheduler can call `POST /api/legislation/check`.
+
+### Changed
+- The seed `BILLS` list is now labelled in the UI as static sample data, so it doesn't sit unmarked next to real watch results.
+
+### Fixed during the build
+- A 404 has a body, and that body is stable — so a watch pointed at a moved source would have baselined its error page and reported "no changes" forever. Non-2xx is now reported as unreachable. Found by the test that asserts an unreachable source is never reported as quiet.
+
+### Verified
+39 new offline checks across the three features, 12 more in the browser. 136 offline, 84 browser, 17 end-to-end in total.
+
 ## [1.3.4] — The budgets are yours to set
 
 Every page and reading limit was a hardcoded constant. They are judgement calls about someone else's site, not laws of nature, so they are now environment variables.

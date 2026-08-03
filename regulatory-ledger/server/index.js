@@ -215,7 +215,81 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  return send(req, res, 404, {ok:false, error:'Not found. Try /api/health, /api/crawl?url=example.com, POST /api/attest, or POST /api/analyze'});
+  /* ---- Proposal review -------------------------------------------------
+     Measures a spec against the citations, before the work is built. The
+     tool schema has a gaps-against-the-citation field and no field for
+     "this isn't how we'd do it", which is the constraint the roadmap was
+     firmest about. */
+  if(url.pathname === '/api/proposal'){
+    if(req.method !== 'POST') return send(req, res, 405, {ok:false, error:'POST a JSON body to /api/proposal.'});
+    let body;
+    try{ body = await readJsonBody(req); }
+    catch(e){ return send(req, res, 400, {ok:false, error:e.message}); }
+    if(!Array.isArray(body.requirements) || !body.requirements.length){
+      return send(req, res, 400, {ok:false, error:'Select at least one requirement to review the proposal against.'});
+    }
+    const agent = agentCapability();
+    if(!agent.available) return send(req, res, 200, {ok:false, error:agent.reason});
+    try{
+      const { reviewProposal } = require('./agent/proposal.js');
+      const result = await reviewProposal(body);
+      console.log(`[proposal] ${body.requirements.length} requirement(s) -> ${result.ok ? Object.keys(result.findings).length + ' finding(s)' : 'refused: ' + result.error}`);
+      return send(req, res, 200, result);
+    }catch(e){
+      console.warn(`[proposal] failed: ${e.message}`);
+      return send(req, res, 200, {ok:false, error:e.message});
+    }
+  }
+
+  /* ---- Contextual recommendations -------------------------------------- */
+  if(url.pathname === '/api/recommend'){
+    if(req.method !== 'POST') return send(req, res, 405, {ok:false, error:'POST a JSON body to /api/recommend.'});
+    let body;
+    try{ body = await readJsonBody(req); }
+    catch(e){ return send(req, res, 400, {ok:false, error:e.message}); }
+    if(!Array.isArray(body.requirements) || !body.requirements.length){
+      return send(req, res, 400, {ok:false, error:'Missing `requirements`.'});
+    }
+    const agent = agentCapability();
+    if(!agent.available) return send(req, res, 200, {ok:false, error:agent.reason, fallback:'static'});
+    try{
+      const { recommend } = require('./agent/recommend.js');
+      const result = await recommend(body);
+      console.log(`[recommend] ${body.requirements.length} requirement(s) -> ${Object.keys(result.recommendations || {}).length}`);
+      return send(req, res, 200, result);
+    }catch(e){
+      console.warn(`[recommend] failed: ${e.message}`);
+      return send(req, res, 200, {ok:false, error:e.message, fallback:'static'});
+    }
+  }
+
+  /* ---- Legislation watch ------------------------------------------------
+     Watches pages and reports what changed, quoting it. It does not claim
+     to have parsed a bill or to know its status — a bill status this tool
+     invented would be a compliance decision made on a fiction. Needs no
+     API key: retrieval and diffing only. */
+  if(url.pathname === '/api/legislation/watches'){
+    try{
+      return send(req, res, 200, require('./legislation.js').listWatches());
+    }catch(e){
+      return send(req, res, 200, {ok:false, error:e.message});
+    }
+  }
+  if(url.pathname === '/api/legislation/check'){
+    if(req.method !== 'POST') return send(req, res, 405, {ok:false, error:'POST to /api/legislation/check.'});
+    let body = {};
+    try{ body = await readJsonBody(req); }catch(e){ /* an empty body means "check the defaults" */ }
+    try{
+      const result = await require('./legislation.js').check(body);
+      console.log(`[legislation] ${result.results.length} source(s) -> ${result.changedCount} changed, ${result.failedCount} unreachable`);
+      return send(req, res, 200, result);
+    }catch(e){
+      console.warn(`[legislation] failed: ${e.message}`);
+      return send(req, res, 200, {ok:false, error:e.message});
+    }
+  }
+
+  return send(req, res, 404, {ok:false, error:'Not found. Try /api/health, /api/crawl, /api/analyze, /api/attest, /api/proposal, /api/recommend, or /api/legislation/check'});
 });
 
 server.listen(PORT, HOST, () => {

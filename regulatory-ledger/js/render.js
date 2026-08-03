@@ -890,6 +890,112 @@ function renderChecklistItem(site, scan, regKey, item){
   `;
 }
 
+/* Contextual advice, kept visually distinct from the static text it
+   replaces — the two are not the same thing and the tab should not blur
+   them. Effort sizing is here because "add a sentence to the policy" and
+   "build a preference centre" are different decisions and the tab used to
+   present them identically. */
+function contextualRecHtml(rec){
+  return `
+    <div class="rec-contextual">
+      <div class="rec-ctx-head">
+        <span class="rec-ctx-tag">Specific to what was found</span>
+        <span class="rec-effort ${rec.effort}">${rec.effort} effort</span>
+      </div>
+      <div class="rec-headline">${escapeHtml(rec.headline)}</div>
+      <ol class="rec-steps">${(rec.steps||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ol>
+      ${rec.whyThisSatisfies ? `<div class="rec-why"><b>Why this satisfies the citation:</b> ${escapeHtml(rec.whyThisSatisfies)}</div>` : ''}
+      ${(rec.evidenceAfterwards||[]).length ? `
+        <div class="rec-evidence"><b>Capture afterwards, to attest it:</b>
+          <ul>${rec.evidenceAfterwards.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>
+        </div>` : ''}
+    </div>`;
+}
+
+/* ---- Proposal review ---------------------------------------------------
+   Paste or attach a spec and have it measured against the citations before
+   the work is built. The output deliberately separates what the plan says
+   (quoted from the plan) from what the citation demands that it misses —
+   and there is no "we'd have done it differently" register, by design. */
+function renderProposalPanel(site, gaps){
+  const svc = state.crawlBackend || {};
+  const ready = !!(svc.available && svc.agent && svc.agent.available);
+  const draft = state.proposalDraft || {text:'', reqs:[]};
+  const rev = site.proposalReview;
+
+  const options = gaps.map(g=>`
+    <label class="prop-req ${draft.reqs.includes(g.item.id)?'on':''}">
+      <input type="checkbox" data-prop-req="${g.item.id}" ${draft.reqs.includes(g.item.id)?'checked':''}>
+      <span>[${g.regKey}] ${escapeHtml(g.item.code)} — ${escapeHtml(g.item.text)}</span>
+    </label>`).join('');
+
+  return `
+    <div class="prop-panel">
+      <h3 class="disp">Review a proposal</h3>
+      <p class="rec-intro" style="margin-top:0;">Describe how you intend to close one of these, and have it measured against the citation before it is built. It judges the plan against the legal text — an approach that differs from the suggestion above is not a finding unless it leaves an actual gap.</p>
+
+      ${ready ? '' : `<div class="reviewer-fallback">Proposal review needs the crawl service running with an API key. ${escapeHtml((svc.agent && svc.agent.reason) || 'The service isn’t reachable.')}</div>`}
+
+      <div class="prop-reqs">${options || '<div class="section-note">Nothing outstanding to review a proposal against.</div>'}</div>
+
+      <textarea class="checklist-textarea prop-text" data-prop-text placeholder="Paste the spec, PRD or design doc — or attach it below…">${escapeHtml(draft.text)}</textarea>
+      ${attachmentsHtml(site, '__proposal__', 'proposal')}
+
+      <button class="submit-btn" data-prop-submit ${(!ready || state.proposalReviewing)?'disabled':''}>
+        ${state.proposalReviewing ? '⟳ Reviewing…' : 'Review this proposal'}
+      </button>
+      ${state.proposalError ? `<div class="err" style="margin-top:9px;">${escapeHtml(state.proposalError)}</div>` : ''}
+
+      ${rev ? renderProposalResult(site, rev) : ''}
+    </div>`;
+}
+
+function renderProposalResult(site, rev){
+  const label = {
+    would_satisfy: 'Would satisfy', would_fall_short: 'Would fall short',
+    does_not_address: 'Not addressed', cannot_tell: 'Too vague to tell',
+  };
+  const cls = {
+    would_satisfy: 'pass', would_fall_short: 'partial',
+    does_not_address: 'fail', cannot_tell: 'unassessed',
+  };
+  const allItems = [...GDPR_SCANNED, ...CCPA_SCANNED, ...GDPR_CHECKLIST, ...CCPA_CHECKLIST];
+  const rows = Object.entries(rev.findings || {}).map(([id, f])=>{
+    const item = allItems.find(i=>i.id===id);
+    return `
+      <div class="prop-finding">
+        <div class="prop-finding-top">
+          <span class="status-badge ${cls[f.verdict]||'unassessed'}">${label[f.verdict]||f.verdict}</span>
+          <span class="prop-finding-req">${item ? escapeHtml(item.code + ' — ' + item.text) : escapeHtml(id)}</span>
+        </div>
+        <div class="rationale-text">${escapeHtml(f.assessment||'')}</div>
+        ${f.downgradedFrom ? `<div class="ungrounded-warn">The reviewer read this as “${escapeHtml(f.downgradedFrom.replace(/_/g,' '))}” but could not point to a passage of your proposal supporting it, so it is left undetermined rather than recorded.</div>` : ''}
+        ${(f.basis||[]).length ? `
+          <div class="basis-box">
+            <div class="basis-head">From your proposal</div>
+            ${f.basis.map(b=>`<div class="basis-row"><div class="basis-quote">“${escapeHtml(b.quote)}”</div><div class="basis-est">${escapeHtml(b.shows)}</div></div>`).join('')}
+          </div>` : ''}
+        ${(f.gaps||[]).length ? `
+          <div class="gaps-box">
+            <div class="gaps-head">What the citation demands that the plan doesn’t deliver</div>
+            <ul>${f.gaps.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>
+          </div>` : ''}
+        ${(f.evidenceToAttest||[]).length ? `
+          <div class="rec-evidence"><b>Once built, capture this to attest it:</b>
+            <ul>${f.evidenceToAttest.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>
+          </div>` : ''}
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="prop-result">
+      <div class="prop-result-head">Reviewed ${new Date(rev.reviewedAt).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})} · ${escapeHtml(rev.model||'')}</div>
+      ${rows || '<div class="section-note">No findings were returned.</div>'}
+      ${rev.outOfScope ? `<div class="prop-oos"><b>Read but not assessed:</b> ${escapeHtml(rev.outOfScope)}</div>` : ''}
+      ${(rev.reference||[]).length ? `<div class="ev-unread">Attached but not read: ${rev.reference.map(r=>escapeHtml(r.name)+' — '+escapeHtml(r.reason)).join('; ')}.</div>` : ''}
+    </div>`;
+}
+
 function renderRecommendationsTab(site, scan){
   const eff = effectiveRegs(site);
   let gaps = [];
@@ -897,11 +1003,12 @@ function renderRecommendationsTab(site, scan){
   if(eff.CCPA) gaps = gaps.concat(gapItems(site, scan, 'CCPA'));
 
   if(gaps.length===0){
-    return `<p class="section-note">No open gaps across the selected regulations right now — nothing to recommend.</p>`;
+    return `<p class="section-note">No open gaps across the selected regulations right now — nothing to recommend.</p>${renderProposalPanel(site, [])}`;
   }
 
   const cardsHtml = gaps.map(g=>{
     const sevClass = g.item.sev==='high'?'high':g.item.sev==='med'?'med':'';
+    const rec = site.recommendations && site.recommendations[g.item.id];
     return `
       <div class="rec-card ${sevClass}">
         <div class="rec-top">
@@ -909,17 +1016,98 @@ function renderRecommendationsTab(site, scan){
           <span class="status-badge ${g.status.toLowerCase()}">${g.status}</span>
         </div>
         <div class="rec-layman">${g.item.layman}</div>
-        <ul class="rec-proposals">
-          ${g.item.proposals.map(p=>`<li>${p}</li>`).join('')}
-        </ul>
+        ${rec ? contextualRecHtml(rec) : `
+          <div class="rec-generic-label">Generic guidance for this requirement</div>
+          <ul class="rec-proposals">
+            ${g.item.proposals.map(p=>`<li>${p}</li>`).join('')}
+          </ul>`}
       </div>
     `;
   }).join('');
 
+  const svc = state.crawlBackend || {};
+  const canAdvise = !!(svc.available && svc.agent && svc.agent.available);
+  const haveContextual = site.recommendations && Object.keys(site.recommendations).length;
+
   return `
     <p class="rec-intro">Concrete directions for closing the gaps found above — written to be spec-ready for a product manager, not a legal opinion. Validate specifics with counsel before shipping.</p>
+    <div class="rec-actions">
+      ${canAdvise
+        ? `<button class="submit-btn" style="margin-top:0;" data-recommend ${state.recommending?'disabled':''}>${
+            state.recommending ? '⟳ Working through them…'
+            : haveContextual ? 'Refresh recommendations' : `Get recommendations specific to these ${gaps.length} gap(s)`}</button>`
+        : `<div class="reviewer-hint" style="margin:0;">The guidance below is the generic text for each requirement. Start the crawl service with an API key for advice written against what was actually found here.</div>`}
+      ${state.recommendError ? `<div class="err" style="margin-top:9px;">${escapeHtml(state.recommendError)}</div>` : ''}
+    </div>
     ${cardsHtml}
+    ${renderProposalPanel(site, gaps)}
   `;
+}
+
+/* ---- Legislation watch -------------------------------------------------
+   Reports what changed on official pages, quoting it. It does not claim to
+   have parsed a bill or to know its status — that would be a compliance
+   decision resting on a scrape nobody verified. The seed list below stays
+   labelled as seed data; this is the part that is real. */
+function renderWatchPanel(site){
+  const w = state.watches;
+  const res = state.watchResults;
+  return `
+    <div class="watch-panel">
+      <div class="watch-head">
+        <h3 class="disp" style="margin:0;">Watch official sources</h3>
+        <button class="submit-btn" style="margin-top:0;" data-watch-check ${state.watchChecking?'disabled':''}>
+          ${state.watchChecking ? '⟳ Checking…' : 'Check for changes'}
+        </button>
+      </div>
+      <p class="rec-intro" style="margin-top:0;">Fetches each page and reports the lines that changed since the last check. It doesn’t interpret them — a bill status this tool inferred from a scrape isn’t something to make a compliance decision on. Click through to read the source.</p>
+
+      ${!(state.crawlBackend && state.crawlBackend.available)
+        ? `<div class="reviewer-fallback">This needs the crawl service running — a browser can’t fetch another site’s pages.${startCommandHtml()}</div>`
+        : ''}
+
+      ${w && w.suggested ? `
+        <div class="watch-sources">
+          ${w.suggested.map(sX=>{
+            const tracked = (w.tracked||[]).find(t=>t.id===sX.id);
+            return `<div class="watch-src">
+              <a href="${escapeHtml(sX.url)}" target="_blank" rel="noopener">${escapeHtml(sX.label)}</a>
+              <span class="watch-regions mono">${(sX.regions||[]).join(' ')}</span>
+              <span class="watch-state">${tracked && tracked.lastError ? `⚠ ${escapeHtml(tracked.lastError)}`
+                : tracked && tracked.hasBaseline ? `baseline set ${new Date(tracked.checkedAt).toLocaleDateString()}`
+                : 'not checked yet'}</span>
+            </div>`;
+          }).join('')}
+          <div class="watch-note">These are suggested starting points and their URLs are not verified by this tool. A source that has moved reports an error on the next check rather than going quietly silent.</div>
+        </div>` : ''}
+
+      ${state.watchError ? `<div class="err" style="margin-top:10px;">${escapeHtml(state.watchError)}</div>` : ''}
+      ${res ? renderWatchResults(res) : ''}
+    </div>`;
+}
+
+function renderWatchResults(res){
+  if(res.persistWarning){
+    return `<div class="err" style="margin-top:12px;">${escapeHtml(res.persistWarning)}</div>`;
+  }
+  const changed = (res.results||[]).filter(r=>r.ok && r.changed);
+  const failed = (res.results||[]).filter(r=>!r.ok);
+  const quiet = (res.results||[]).filter(r=>r.ok && !r.changed);
+
+  return `
+    <div class="watch-results">
+      <div class="watch-summary mono">Checked ${new Date(res.checkedAt).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})} · ${changed.length} changed · ${quiet.length} unchanged · ${failed.length} unreachable</div>
+      ${changed.map(r=>`
+        <div class="watch-change">
+          <div class="watch-change-head"><a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.label||r.url)}</a>
+            <span class="watch-regions mono">${(r.regions||[]).join(' ')}</span></div>
+          <div class="watch-counts mono">${r.addedCount} line(s) added · ${r.removedCount} removed${r.since?` · since ${new Date(r.since).toLocaleDateString()}`:''}</div>
+          ${(r.added||[]).length ? `<ul class="watch-lines added">${r.added.map(l=>`<li>${escapeHtml(l)}</li>`).join('')}</ul>` : ''}
+          ${(r.removed||[]).length ? `<ul class="watch-lines removed">${r.removed.map(l=>`<li>${escapeHtml(l)}</li>`).join('')}</ul>` : ''}
+        </div>`).join('')}
+      ${failed.length ? `<div class="watch-failed"><b>Could not read:</b> ${failed.map(r=>`${escapeHtml(r.label||r.url)} — ${escapeHtml(r.error)}`).join('<br>')}</div>` : ''}
+      ${(res.results||[]).some(r=>r.firstCheck) ? `<div class="watch-note">Sources checked for the first time are now baselined; changes are reported from the next check.</div>` : ''}
+    </div>`;
 }
 
 function renderLegislationTab(site){
@@ -954,7 +1142,9 @@ function renderLegislationTab(site){
     </label>` : '';
 
   return `
-    <p class="section-note">Sample dataset for this prototype — a live build would sync from a legal-tracking source on a weekly batch job. Last simulated refresh: Jul 21, 2026.</p>
+    ${renderWatchPanel(site)}
+    <h3 class="disp" style="margin-top:30px;">Seed list of bills</h3>
+    <p class="section-note">Static sample data, not a live feed — it has always been illustrative and still is. The watch above is the part that reports something real.</p>
     ${siteToggle}
     <div class="filters">
       <select id="leg-region-filter">${regions.map(r=>`<option value="${r}" ${r===state.legFilterRegion?'selected':''}>${r==='All'?'All regions':r}</option>`).join('')}</select>

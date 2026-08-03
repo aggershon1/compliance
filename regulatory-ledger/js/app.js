@@ -41,6 +41,15 @@ const state = {
   passingOpen: {},               // regKey -> is the "Passing" drawer expanded
   focus: null,                   // {reg, i} — work through open items one at a time
   reviewing: {},                 // itemId -> true while an attestation review is in flight
+  recommending: false,           // contextual recommendations in flight
+  recommendError: null,
+  proposalDraft: {text:'', reqs:[]},
+  proposalReviewing: false,
+  proposalError: null,
+  watches: null,                 // {suggested, tracked} from the service
+  watchResults: null,            // last legislation check
+  watchChecking: false,
+  watchError: null,
 };
 
 /* Keeps any path the user typed. Entering "betterhelp.com/privacy" should
@@ -379,8 +388,75 @@ function attachHandlers(site){
   });
 
   /* ---- Region selector, passing drawer, focus mode ------------------- */
+  /* ---- Contextual recommendations ------------------------------------ */
+  const recBtn = document.querySelector('[data-recommend]');
+  if(recBtn) recBtn.addEventListener('click', async ()=>{
+    state.recommending = true; state.recommendError = null; render();
+    try{
+      const res = await requestRecommendations(site);
+      if(res && res.ok){
+        site.recommendations = {...(site.recommendations||{}), ...res.recommendations};
+      } else {
+        state.recommendError = (res && res.error) || 'The adviser returned nothing.';
+      }
+    }catch(e){ state.recommendError = e.message; }
+    state.recommending = false; render();
+  });
+
+  /* ---- Proposal review ------------------------------------------------- */
+  const propText = document.querySelector('[data-prop-text]');
+  if(propText) propText.addEventListener('input', (e)=>{ state.proposalDraft.text = e.target.value; });
+  document.querySelectorAll('[data-prop-req]').forEach(el=>{
+    el.addEventListener('change', (e)=>{
+      const id = el.getAttribute('data-prop-req');
+      const reqs = state.proposalDraft.reqs;
+      state.proposalDraft.reqs = e.target.checked
+        ? [...new Set([...reqs, id])]
+        : reqs.filter(x=>x!==id);
+      render();
+    });
+  });
+  const propSubmit = document.querySelector('[data-prop-submit]');
+  if(propSubmit) propSubmit.addEventListener('click', async ()=>{
+    if(!state.proposalDraft.reqs.length){
+      state.proposalError = 'Pick at least one requirement to review the proposal against.';
+      return render();
+    }
+    state.proposalReviewing = true; state.proposalError = null; render();
+    try{
+      const res = await requestProposalReview(site);
+      if(res && res.ok) site.proposalReview = res;
+      else state.proposalError = (res && res.error) || 'The reviewer returned nothing.';
+    }catch(e){ state.proposalError = e.message; }
+    state.proposalReviewing = false; render();
+  });
+
+  /* ---- Legislation watch ----------------------------------------------- */
+  const watchBtn = document.querySelector('[data-watch-check]');
+  if(watchBtn) watchBtn.addEventListener('click', async ()=>{
+    state.watchChecking = true; state.watchError = null; render();
+    try{
+      const res = await requestWatchCheck();
+      if(res && res.ok){
+        state.watchResults = res;
+        state.watches = await requestWatches();
+      } else {
+        state.watchError = (res && res.error) || 'The check returned nothing.';
+      }
+    }catch(e){
+      state.watchError = `Could not reach the crawl service at ${crawlBackendUrl()} — ${e.message}`;
+    }
+    state.watchChecking = false; render();
+  });
+
   const analyzeBtn = document.getElementById('btn-analyze');
   if(analyzeBtn) analyzeBtn.addEventListener('click', ()=>{ runAnalysis(site); });
+
+  /* The watch list comes from the service, so fetch it the first time the
+     tab is opened rather than at boot — most sessions never look at it. */
+  if(state.activeTab === 'legislation' && !state.watches && state.crawlBackend && state.crawlBackend.available){
+    requestWatches().then(w=>{ if(w && w.ok){ state.watches = w; render(); } }).catch(()=>{});
+  }
 
   const copyStart = document.querySelector('[data-copy-start]');
   if(copyStart) copyStart.addEventListener('click', async ()=>{

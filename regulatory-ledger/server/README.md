@@ -21,7 +21,8 @@ Node 18+ required (it uses built-in `fetch`). **The core has no dependencies and
 | `PORT` | `8787` | Port to listen on |
 | `HOST` | `127.0.0.1` | Bind address — loopback by default |
 | `ANTHROPIC_API_KEY` | unset | Enables the two agents (see below). Without it the service still crawls. |
-| `AGENT_MODEL` | `claude-opus-5` | Model for both agents |
+| `AGENT_MODEL` | `claude-opus-5` | Model for the agents |
+| `WATCH_STATE_FILE` | `server/.watch-state.json` | Where legislation snapshots are kept. Without a writable path every check looks like a first check and no change can be detected — the service says so rather than staying quiet. |
 | `ALLOW_PRIVATE_HOSTS` | unset | **Test only.** Disables the private-address guard so the test suite can crawl a local fixture. Never set this on a shared machine. |
 
 ### Budgets
@@ -110,6 +111,20 @@ POST /api/analyze  {requirements:[{id,code,text,layman,…}], pages:[{url,title,
   -> {"ok":true,"findings":{"gdpr-s1":{"verdict":"satisfies","citations":[…],
       "reasoning":"…","beyondTheDocument":"…","pagesSearched":[…]}},"missing":[]}
   -> {"ok":false,"error":"…","fallback":"phrases"}
+
+POST /api/proposal {requirements:[…], proposalText, attachments, context, strictness}
+  -> {"ok":true,"findings":{"gdpr-c2":{"verdict":"would_fall_short","basis":[…],
+      "gaps":[…],"evidenceToAttest":[…],"assessment":"…"}},"outOfScope":"…"}
+
+POST /api/recommend {requirements:[{id,code,text,status,provenance,…}], context, strictness}
+  -> {"ok":true,"recommendations":{"gdpr-s1":{"headline":"…","steps":[…],
+      "whyThisSatisfies":"…","evidenceAfterwards":[…],"effort":"small"}}}
+
+GET  /api/legislation/watches
+  -> {"ok":true,"suggested":[…],"tracked":[…],"lastCheckedAt":…}
+POST /api/legislation/check   {watches?:[{id,label,url,regions}]}
+  -> {"ok":true,"results":[{id,ok,changed,added:[…],removed:[…]}],
+      "changedCount":1,"failedCount":0}
 
 POST /api/attest   {item:{code,text,layman,guidance}, description, hasScreenshot, turns, strictness}
   -> {"ok":true,"needsFollowUp":true,"followUpQuestion":"…","whyItMatters":"…"}

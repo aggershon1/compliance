@@ -392,3 +392,98 @@ function applyAnalysis(site, analysis){
   };
   return n;
 }
+
+
+/* ============================================================
+   ROADMAP FEATURES — recommendations, proposal review, legislation
+   ============================================================
+   Same discipline as everything else that talks to the service: each
+   returns a structured reason on every path, never a bare null, so a
+   failure can always be shown rather than looking like a quiet success. */
+
+async function requestRecommendations(site){
+  const scan = site.scans[site.scans.length-1];
+  const eff = effectiveRegs(site);
+  const reqs = [];
+  ['GDPR','CCPA'].forEach(regKey=>{
+    if(!eff[regKey]) return;
+    gapItems(site, scan, regKey).forEach(g=>{
+      const f = site.crawlFindings && site.crawlFindings[g.item.id];
+      const st = site.checklistState && site.checklistState[g.item.id];
+      const ov = site.overrides && site.overrides[g.item.id];
+      /* Where the status came from decides whether the adviser may write
+         about the product in the indicative at all, so it travels with it. */
+      const provenance = ov ? `recorded by a person on ${new Date(ov.timestamp).toLocaleDateString()}: “${ov.explanation}”`
+        : (f && f.via === 'analyst') ? 'the reviewer read the retrieved pages and assessed this'
+        : (f && f.determinable) ? 'matched expected wording in the retrieved pages'
+        : (st && st.finalized) ? `self-attested and reviewed (${st.reviewer === 'model' ? 'interviewed' : 'keyword heuristic'})`
+        : 'nobody has assessed this yet — treat the current position as unknown';
+      reqs.push({
+        id: g.item.id, code: g.item.code, text: g.item.text, layman: g.item.layman,
+        status: g.status, provenance,
+        basis: (f && f.rationale) || (st && st.rationale) || null,
+        gaps: (st && st.gaps) || [],
+        staticProposal: (g.item.proposals || []).join(' '),
+      });
+    });
+  });
+  if(!reqs.length) return {ok:false, error:'Nothing is outstanding, so there is nothing to recommend.'};
+
+  const res = await fetch(crawlBackendUrl() + '/api/recommend', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      requirements: reqs,
+      context: {domain: site.domain, countries: countryLabelFor(site)},
+      strictness: strictnessSetting(),
+    }),
+  });
+  if(!res.ok) return {ok:false, error:`The crawl service answered ${res.status} for /api/recommend — restart it if it predates this feature.`};
+  return await res.json();
+}
+
+async function requestProposalReview(site){
+  const draft = state.proposalDraft || {text:'', reqs:[]};
+  const allItems = [...GDPR_SCANNED, ...CCPA_SCANNED, ...GDPR_CHECKLIST, ...CCPA_CHECKLIST];
+  const scan = site.scans[site.scans.length-1];
+
+  const requirements = draft.reqs.map(id=>{
+    const item = allItems.find(i=>i.id===id);
+    if(!item) return null;
+    const regKey = GDPR_SCANNED.concat(GDPR_CHECKLIST).some(i=>i.id===id) ? 'GDPR' : 'CCPA';
+    const source = GDPR_SCANNED.concat(CCPA_SCANNED).some(i=>i.id===id) ? 'scanned' : 'attested';
+    const f = site.crawlFindings && site.crawlFindings[id];
+    return {
+      id, code: item.code, text: item.text, layman: item.layman,
+      currentStatus: itemEffectiveStatus(site, scan, regKey, item, source),
+      currentBasis: (f && f.rationale) || null,
+    };
+  }).filter(Boolean);
+  if(!requirements.length) return {ok:false, error:'None of the selected requirements could be resolved.'};
+
+  const res = await fetch(crawlBackendUrl() + '/api/proposal', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      requirements,
+      proposalText: draft.text,
+      attachments: attPayload(site, '__proposal__'),
+      context: {countries: countryLabelFor(site)},
+      strictness: strictnessSetting(),
+    }),
+  });
+  if(!res.ok) return {ok:false, error:`The crawl service answered ${res.status} for /api/proposal — restart it if it predates this feature.`};
+  return await res.json();
+}
+
+async function requestWatches(){
+  const res = await fetch(crawlBackendUrl() + '/api/legislation/watches');
+  if(!res.ok) return {ok:false, error:`The crawl service answered ${res.status}.`};
+  return await res.json();
+}
+
+async function requestWatchCheck(){
+  const res = await fetch(crawlBackendUrl() + '/api/legislation/check', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: '{}',
+  });
+  if(!res.ok) return {ok:false, error:`The crawl service answered ${res.status} for /api/legislation/check — restart it if it predates this feature.`};
+  return await res.json();
+}

@@ -4,7 +4,7 @@
   "private": true,
   "description": "The two model-backed agents: a navigator that finds a site's privacy documents by reading it, and an interviewer that reviews self-attestations against the citation. Kept in its own package so the crawl service stays dependency-free.",
   "scripts": {
-    "test": "node crawl.test.js && node loop.test.js && node attest.test.js && node analyst.test.js && node service.test.js",
+    "test": "node crawl.test.js && node loop.test.js && node attest.test.js && node analyst.test.js && node roadmap.test.js && node service.test.js",
     "eval": "node eval.js",
     "eval:heuristic": "node eval.js --heuristic-only",
     "fixture": "node fixture/server.js"
